@@ -1,0 +1,27 @@
+# Never commit real financial data
+data/raw/*
+data/normalized/*
+data/statements/*
+reports/*
+config/profile.json
+config/budget.json
+config/local_profile.js
+config/overrides.json
+config/simplefin_access.url
+config/simplefin_map.json
+!data/raw/.gitkeep
+!data/normalized/.gitkeep
+!reports/.gitkeep
+
+# Personal config stays local; the tracked *.example.* files are the templates:
+#   config/budget.json        <- cp config/budget.example.json      (scripts fall back to the example automatically)
+#   config/local_profile.js   <- cp config/local_profile.example.js (dashboard personal numbers)
+#   config/overrides.json     <- optional one-off categorize corrections
+#   config/profile.json       <- balances, loans, owner_context
+
+# examples/ holds only synthetic demo data — safe to keep
+
+# OS / editor noise
+.DS_Store
+__pycache__/
+*.pyc

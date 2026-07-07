@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Finance Analyzer — Dashboard</title>
+<style>
+  :root{
+    --bg:#0e1117; --panel:#161b22; --panel2:#1c2330; --border:#2a3340;
+    --text:#e6edf3; --muted:#8b97a7; --accent:#58a6ff; --in:#3fb950;
+    --out:#f85149; --warn:#d29922; --chip:#21262d;
+    --c0:#58a6ff;--c1:#3fb950;--c2:#d29922;--c3:#f85149;--c4:#bc8cff;
+    --c5:#39c5cf;--c6:#ff7b72;--c7:#7ee787;--c8:#ffa657;--c9:#79c0ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  a{color:var(--accent)}
+  header{padding:16px 22px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:var(--panel)}
+  header h1{font-size:18px;margin:0;font-weight:650;letter-spacing:.2px}
+  header .sub{color:var(--muted);font-size:12px}
+  .grow{flex:1}
+  button,.btn{background:var(--chip);color:var(--text);border:1px solid var(--border);
+    border-radius:7px;padding:7px 12px;font-size:13px;cursor:pointer}
+  button:hover,.btn:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:#08111f;border-color:var(--accent);font-weight:600}
+  .danger:hover{border-color:var(--out);color:var(--out)}
+  .wrap{display:flex;min-height:calc(100vh - 60px)}
+  aside{width:280px;flex:none;border-right:1px solid var(--border);
+    padding:16px;overflow-y:auto;max-height:calc(100vh - 60px);position:sticky;top:0;background:var(--panel)}
+  main{flex:1;padding:20px 24px;overflow-x:hidden}
+  .filter-group{margin-bottom:18px}
+  .filter-group h3{font-size:11px;text-transform:uppercase;letter-spacing:.8px;
+    color:var(--muted);margin:0 0 8px}
+  input[type=text],input[type=number],input[type=date],select{
+    width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
+    border-radius:6px;padding:7px 9px;font-size:13px}
+  .row2{display:flex;gap:8px}
+  .checks{max-height:210px;overflow-y:auto;border:1px solid var(--border);
+    border-radius:6px;padding:6px}
+  .checks label{display:flex;align-items:center;gap:7px;padding:3px 4px;
+    font-size:12.5px;cursor:pointer;border-radius:4px}
+  .checks label:hover{background:var(--panel2)}
+  .checks input{accent-color:var(--accent)}
+  .seg{display:flex;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+  .seg button{flex:1;border:0;border-radius:0;background:transparent;padding:7px 0}
+  .seg button.on{background:var(--accent);color:#08111f;font-weight:600}
+  .banner{display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+    background:linear-gradient(90deg,#13261b,#161b22);border:1px solid var(--in);
+    border-radius:12px;padding:16px 20px;margin-bottom:16px}
+  .banner.over{background:linear-gradient(90deg,#2a1416,#161b22);border-color:var(--out)}
+  .banner .big{font-size:30px;font-weight:760;line-height:1}
+  .banner .lab{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px}
+  .banner .sep{width:1px;align-self:stretch;background:var(--border)}
+  .banner .msg{flex:1;min-width:200px;color:var(--muted);font-size:13px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+  .kpi .label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+  .kpi .val{font-size:22px;font-weight:680;margin-top:4px}
+  .kpi .val.in{color:var(--in)} .kpi .val.out{color:var(--out)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px}
+  .card h2{font-size:13px;margin:0 0 14px;font-weight:600;color:var(--text);
+    display:flex;justify-content:space-between;align-items:center}
+  .card h2 .hint{font-weight:400;color:var(--muted);font-size:11px}
+  .full{grid-column:1 / -1}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+  th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px;
+    cursor:pointer;user-select:none;position:sticky;top:0;background:var(--panel)}
+  th:hover{color:var(--text)}
+  td.amt{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+  td.amt.in{color:var(--in)} td.amt.out{color:var(--out)}
+  .desc{max-width:340px;overflow:hidden;text-overflow:ellipsis}
+  .pill{display:inline-block;padding:1px 8px;border-radius:20px;font-size:11px;
+    background:var(--chip);border:1px solid var(--border)}
+  .tablewrap{max-height:520px;overflow:auto;border:1px solid var(--border);border-radius:8px}
+  .pager{display:flex;gap:10px;align-items:center;margin-top:10px;color:var(--muted);font-size:12px}
+  .dropzone{border:2px dashed var(--border);border-radius:12px;padding:40px;text-align:center;
+    color:var(--muted);margin:40px auto;max-width:600px}
+  .dropzone.drag{border-color:var(--accent);background:var(--panel2);color:var(--text)}
+  .barrow{display:flex;align-items:center;gap:10px;margin:6px 0;font-size:12.5px}
+  .barrow .lbl{width:130px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .barrow .track{flex:1;background:var(--bg);border-radius:5px;height:18px;overflow:hidden}
+  .barrow .fill{height:100%;border-radius:5px}
+  .barrow .num{width:90px;flex:none;text-align:right;font-variant-numeric:tabular-nums}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;font-size:12px;color:var(--muted)}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
+  .muted{color:var(--muted)}
+  .empty{color:var(--muted);text-align:center;padding:20px}
+  .toast{position:fixed;bottom:20px;right:20px;background:var(--panel2);border:1px solid var(--border);
+    padding:12px 16px;border-radius:8px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.4);display:none}
+  .insightlist{font-size:13px}
+  .insightlist .it{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)}
+  .insightlist .it:last-child{border:0}
+  small.tag{font-size:10.5px;color:var(--muted)}
+  @media(max-width:880px){.grid{grid-template-columns:1fr}.wrap{flex-direction:column}aside{width:100%;position:static;max-height:none}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>💳 Finance Analyzer</h1>
+    <div class="sub" id="dataSummary">No data loaded</div>
+  </div>
+  <div class="grow"></div>
+  <input type="file" id="fileInput" accept=".csv,.json" multiple style="display:none" />
+  <button class="primary" onclick="document.getElementById('fileInput').click()">+ Import CSV / JSON</button>
+  <button id="exportBtn" onclick="exportCsv()">Export view (CSV)</button>
+  <button class="danger" onclick="clearAll()">Clear data</button>
+</header>
+
+<div class="wrap">
+  <aside id="sidebar">
+    <div class="filter-group">
+      <h3>Date range</h3>
+      <div class="row2">
+        <input type="date" id="fDateFrom" />
+        <input type="date" id="fDateTo" />
+      </div>
+      <div style="margin-top:8px" class="row2">
+        <button onclick="quickRange('ytd')">YTD</button>
+        <button onclick="quickRange('30')">30d</button>
+        <button onclick="quickRange('90')">90d</button>
+        <button onclick="quickRange('all')">All</button>
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <h3>Flow</h3>
+      <div class="seg" id="flowSeg">
+        <button data-flow="all" class="on">All</button>
+        <button data-flow="out">Spending</button>
+        <button data-flow="in">Income</button>
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <h3>Search description</h3>
+      <input type="text" id="fSearch" placeholder="e.g. amazon, uber..." />
+    </div>
+
+    <div class="filter-group">
+      <h3>Amount ($, absolute)</h3>
+      <div class="row2">
+        <input type="number" id="fMin" placeholder="min" />
+        <input type="number" id="fMax" placeholder="max" />
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <h3>Accounts</h3>
+      <div class="checks" id="acctChecks"></div>
+    </div>
+
+    <div class="filter-group">
+      <h3>Categories</h3>
+      <div style="display:flex;gap:8px;margin-bottom:6px">
+        <button style="flex:1" onclick="setAllCats(true)">All</button>
+        <button style="flex:1" onclick="setAllCats(false)">None</button>
+      </div>
+      <div class="checks" id="catChecks"></div>
+    </div>
+
+    <button style="width:100%" onclick="resetFilters()">Reset all filters</button>
+  </aside>
+
+  <main id="main">
+    <div id="empty" class="dropzone" ondragover="dz(event,1)" ondragleave="dz(event,0)" ondrop="dropFiles(event)">
+      <h2 style="color:var(--text)">Drop transaction files here</h2>
+      <p>Drag &amp; drop your <b>Huntington</b> and <b>credit card</b> CSV exports
+      (or a normalized <code>transactions.json</code>).<br>
+      Everything is parsed locally in your browser — nothing is uploaded.</p>
+      <button class="primary" onclick="document.getElementById('fileInput').click()">Choose files</button>
+    </div>
+
+    <div id="content" style="display:none">
+      <div id="banner"></div>
+
+      <div class="kpis" id="kpis"></div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>Budget vs actual <span class="hint" id="budgetMonthLabel">this month</span>
+            <select id="planSelect" onchange="onPlanChange()" style="width:auto;padding:4px 8px"></select>
+          </h2>
+          <div id="budgetTable"></div>
+        </div>
+        <div class="card">
+          <h2>Net worth <span class="hint">investments − loans</span></h2>
+          <div id="netWorth"></div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>Monthly cash flow <span class="hint">income vs spending</span></h2>
+          <div id="chartMonthly"></div>
+        </div>
+        <div class="card">
+          <h2>Spending by category</h2>
+          <div id="chartCats"></div>
+        </div>
+        <div class="card">
+          <h2>Cumulative net <span class="hint">running in − out</span></h2>
+          <div id="chartCumulative"></div>
+        </div>
+        <div class="card">
+          <h2>Top merchants <span class="hint">by total spend</span></h2>
+          <div id="chartMerchants"></div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>Likely recurring / subscriptions <span class="hint">≥3 months, steady amount</span></h2>
+          <div id="insRecurring" class="insightlist"></div>
+        </div>
+        <div class="card">
+          <h2>Largest & flagged <span class="hint">biggest + anomalies</span></h2>
+          <div id="insLarge" class="insightlist"></div>
+        </div>
+      </div>
+
+      <div class="card full">
+        <h2>What-if: cut spending <span class="hint">drag the sliders to project annual savings</span></h2>
+        <div id="whatif"></div>
+      </div>
+
+      <div class="card full">
+        <h2>Transactions <span class="hint" id="txCount"></span></h2>
+        <div class="tablewrap">
+          <table id="txTable">
+            <thead><tr>
+              <th data-sort="date">Date</th>
+              <th data-sort="description">Description</th>
+              <th data-sort="category">Category</th>
+              <th data-sort="account">Account</th>
+              <th data-sort="amount" style="text-align:right">Amount</th>
+            </tr></thead>
+            <tbody id="txBody"></tbody>
+          </table>
+        </div>
+        <div class="pager">
+          <button onclick="pageDelta(-1)">‹ Prev</button>
+          <span id="pageInfo"></span>
+          <button onclick="pageDelta(1)">Next ›</button>
+          <span class="grow"></span>
+          <select id="pageSize" onchange="render()">
+            <option value="50">50 / page</option>
+            <option value="100">100 / page</option>
+            <option value="250">250 / page</option>
+            <option value="1000">1000 / page</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- Optional personal overrides (git-ignored — safe for real numbers).
+     Copy config/local_profile.example.js to config/local_profile.js and edit
+     it. If the file doesn't exist, the generic starter values below are used. -->
+<script src="config/local_profile.js"></script>
+<script>
+/* =========================================================================
+   Finance Analyzer dashboard — 100% client-side.
+   Mirrors scripts/categorize.py and scripts/normalize.py logic so the UI and
+   the Python pipeline agree on categories and sign conventions.
+   ========================================================================= */
+
+// ---- Category rules (kept in sync with scripts/categorize.py) -------------
+const CATEGORY_RULES = [
+  ["Subscriptions & Software",["netflix","spotify","hulu","disney","youtube premium","youtubepre","apple.com/bill","apple.com","itunes","icloud","google storage","google one","adobe","microsoft","msft","office 365","openai","anthropic","claude","chatgpt","github","notion","dropbox","amazon prime","prime video","hbo","max.com","paramount","peacock","audible","patreon","substack","canva","1password","linkedin","nordvpn","expressvpn","playstation plus","xbox game","nintendo online","twitch","discord nitro","onlyfans"]],
+  ["Utilities & Phone",["at&t","att*","verizon","t-mobile","tmobile","sprint","comcast","xfinity","spectrum","cox comm","centurylink","duke energy","aep","columbia gas","first energy","firstenergy","toledo edison","consumers energy","dte","national grid","electric","water dept","water util","sewer","natural gas","energy","utility","internet","broadband","google fiber"]],
+  ["Housing & Rent",["rent","apartment","apartments","leasing","property mgmt","property management","landlord","mortgage","hoa","realty","residential","the flats","the district","campus village"]],
+  ["Insurance",["geico","progressive","state farm","allstate","liberty mutual","nationwide ins","usaa","insurance","ins prem","policy","metlife","aetna","anthem","cigna","humana","unitedhealth"]],
+  ["Healthcare",["pharmacy","cvs","walgreens","rite aid","doctor","dental","dentist","hospital","clinic","medical","health","urgent care","optometr","vision","labcorp","quest diag","copay","physician"]],
+  ["Groceries",["kroger","meijer","aldi","whole foods","wholefds","trader joe","walmart","wal-mart","wm super","costco","sam's club","sams club","giant eagle","food lion","safeway","publix","wegmans","heb","h-e-b","sprouts","fresh thyme","marc's","marcs","grocery","supermarket","market basket","save a lot","save-a-lot","conv. store","conv store","macs conv","circle k"]],
+  ["Dining & Food",["restaurant","mcdonald","chipotle","starbucks","dunkin","taco bell","wendy","burger king","burgerking","pizza","doordash","ubereats","uber eats","grubhub","postmates","cafe","coffee","grill","kitchen","chick-fil-a","chickfila","chick fil a","panera","subway","five guys","raising cane","canes","jimmy john","jersey mike","qdoba","panda express","sonic","arby","dairy queen","kfc","popeyes","wingstop","buffalo wild","bdubs","ihop","denny","waffle house","diner","tavern","brewing","brewery","pub","eatery","bistro","deli","donut","bakery","ice cream","smoothie","juice","bar &","olive garden","texas roadhouse","applebee","chili's","chilis","red lobster","longhorn","outback","cracker barrel","cheesecake","red robin","noodles & co","noodles and co","first watch","steakhouse","cantina","taqueria","sushi","thai","ramen","packo"]],
+  ["Gas & Fuel",["shell","bp ","bp#","exxon","mobil ","exxonmobil","marathon","speedway","sunoco","chevron","circlek","valero","citgo","phillips 66","kwik","sheetz","wawa","gas station","fuel","gasoline","pilot","loves travel","love's","racetrac","get go","getgo"]],
+  ["Transport",["uber","lyft","parking","park mobile","parkmobile","toll","ezpass","e-zpass","transit","metro","rta","bus ","amtrak","rental car","enterprise rent","hertz","avis","budget rent","scooter","bird","lime","bike share"]],
+  ["Auto & Vehicle",["autozone","o'reilly","oreilly","advance auto","napa auto","jiffy lube","valvoline","midas","firestone","discount tire","tire","mechanic","auto repair","car wash","carwash","dealership","carmax","dmv","bmv","registration","smog"]],
+  ["Travel",["airline","airlines","delta air","united air","american air","southwest air","spirit air","frontier air","jetblue","alaska air","hotel","motel","marriott","hilton","hyatt","holiday inn","best western","airbnb","vrbo","expedia","booking.com","priceline","kayak","airport","tsa pre","global entry","resort","lodging"]],
+  ["Education",["tuition","university","college","bookstore","udemy","coursera","edx","chegg","pearson","mcgraw","cengage","school","campus","student loan","fafsa","scholarship","registrar","bowling green","bgsu","ohio state","owens comm"]],
+  ["Entertainment",["cinema","movie","amc ","regal","cinemark","theatre","theater","steam games","steampowered","playstation","xbox","nintendo","epic games","riot games","ticketmaster","stubhub","live nation","concert","eventbrite","fandango","bowling lan","arcade","golf","peloton","casino","pride","kalshi","draftkings","fanduel","betmgm","prizepicks"]],
+  ["Health & Fitness",["gym","fitness","planet fit","la fitness","anytime fitness","crunch","yoga","crossfit","rec center","recreation"]],
+  ["Donations",["salvation army","goodwill","red cross","gofundme","donation","st. jude","st jude","unicef","charity","nonprofit"]],
+  ["Shopping",["amazon","amzn","target","best buy","bestbuy","ebay","etsy","nike","adidas","lululemon","apple store","microcenter","micro center","home depot","lowe's","lowes","menards","ikea","wayfair","old navy","gap ","h&m","zara","macy","nordstrom","tj maxx","tjmaxx","marshalls","ross stores","kohl","ulta","sephora","gamestop","barnes","dick's sport","dicks sport","five below","dollar gen","dollar tree","family dollar","shein","temu","wish.com","store","shop","boutique","vending","paypal","stockx","goat ","mercari","poshmark","depop"]],
+];
+const REFINE="__REFINE__";
+const BANK_CATEGORY_MAP={
+  "Fast Food":"Dining & Food","Restaurants":"Dining & Food","Coffee Shop":"Dining & Food","Dining":"Dining & Food",
+  "Gasoline":"Gas & Fuel","Parking":"Transport","Public Transportation":"Transport",
+  "Auto Parts & Service":"Auto & Vehicle","Automotive":"Auto & Vehicle",
+  "Groceries":"Groceries","Supermarkets":"Groceries",
+  "Fitness":"Health & Fitness","Pharmacy":"Healthcare","Medical Services":"Healthcare","Hair":"Personal Care",
+  "Electronics":"Shopping","Clothing":"Shopping","Books & Magazines":"Shopping","Merchandise":REFINE,
+  "Hobbies":"Entertainment","Admission & Tickets":"Entertainment","Travel/ Entertainment":"Entertainment","Travel":"Travel",
+  "Home Improvement":"Home & Garden","Lawn & Garden":"Home & Garden",
+  "School Fee":"Education","Education":"Education","Tax":"Taxes","Government Services":"Taxes",
+  "Accounting Fee":"Services","Services":REFINE,"Transfer":"Transfers","Retirement":"Investments","Other":REFINE
+};
+const BANK_DEFAULT={"Other":"Uncategorized","Merchandise":"Shopping","Services":"Services"};
+const INCOME_CATS=new Set(["Income","Interest","Cashback & Rewards","Refunds","Financial Aid","Deposits","Other Income"]);
+const INTERNAL_CATS=new Set(["Transfers","Credit Card Payment","P2P Transfer","Investments"]);
+function _norm(s){return " "+(s||"").toLowerCase().replace(/\s+/g," ").trim()+" ";}
+function keyword_category(desc){const t=_norm(desc);for(const [c,kws] of CATEGORY_RULES)for(const k of kws)if(t.includes(k))return c;return "Uncategorized";}
+function refine_spend_category(desc){const t=_norm(desc);
+  if(["atm","cash withdrawal","cash advance","withdrawal"].some(k=>t.includes(k)))return "Cash & ATM";
+  if(["overdraft","service charge","finance charge","interest charged","transaction fee","withdrawal fee","late fee","annual fee","nsf"," fee "].some(k=>t.includes(k)))return "Fees & Interest";
+  return keyword_category(desc);}
+function kind_of(cat){if(INCOME_CATS.has(cat))return "income";if(INTERNAL_CATS.has(cat))return "internal";return "spend";}
+function classify(desc,bankCat,amount){
+  const t=_norm(desc), bc=(bankCat||"").trim();
+  // One-off personal overrides come from config/local_profile.js
+  // (window.LOCAL_OVERRIDES — same format as config/overrides.json).
+  for(const o of (window.LOCAL_OVERRIDES||[])){
+    if(t.trim()===_norm(o.description||"").trim()&&(o.amount===undefined||amount===o.amount))
+      return{category:o.category,kind:o.kind||kind_of(o.category)};
+  }
+  if(t.includes("internet tfr")||t.includes("internal transfer")||t.includes("online transfer"))return{category:"Transfers",kind:"internal"};
+  if(["schwab","moneylink","brokerage","e*trade","etrade","fidelity","vanguard","robinhood","coinbase","wealthfront","betterment"].some(k=>t.includes(k)))return{category:"Investments",kind:"internal"};
+  if(["Credit Card Payment","Payments and Credits","Retirement"].includes(bc))return{category:bc==="Retirement"?"Investments":"Credit Card Payment",kind:"internal"};
+  if((t.includes("discover")||t.includes("credit card"))&&["payment","e-payment","epayment","directpay","autopay"].some(k=>t.includes(k)))return{category:"Credit Card Payment",kind:"internal"};
+  if(["paypal inst xfer","inst xfer","apple cash","venmo","moneysend","bank xfer","cash app","sent money","zelle"].some(k=>t.includes(k)))return{category:"P2P Transfer",kind:"internal"};
+  if(amount>0){
+    if(bc==="Paycheck"||["payroll","dirdep","dir dep","direct dep","direct deposit","wages","salary"].some(k=>t.includes(k)))return{category:"Income",kind:"income"};
+    if(bc==="Interest"||t.includes("interest payment")||t.includes("interest paid"))return{category:"Interest",kind:"income"};
+    if(bc==="Awards and Rebate Credits"||["cashback","cash back","redemption","reward"].some(k=>t.includes(k)))return{category:"Cashback & Rewards",kind:"income"};
+    if(["bowling green","bgsu","financial aid","disburse","fin aid","refund check"].some(k=>t.includes(k)))return{category:"Financial Aid",kind:"income"};
+    if(["refund","merchandise ret","return","reversal","credit voucher"].some(k=>t.includes(k)))return{category:"Refunds",kind:"income"};
+    if(["deposit","mobile check","withdrawal"].some(k=>t.includes(k)))return{category:"Deposits",kind:"income"};
+    return{category:"Other Income",kind:"income"};
+  }
+  if(bc in BANK_CATEGORY_MAP){
+    const mapped=BANK_CATEGORY_MAP[bc]; let cat;
+    if(mapped===REFINE){const r=refine_spend_category(desc);cat=(r!=="Uncategorized")?r:(BANK_DEFAULT[bc]||"Shopping");}
+    else cat=mapped;
+    return{category:cat,kind:kind_of(cat)};
+  }
+  const cat=refine_spend_category(desc);
+  return{category:cat,kind:kind_of(cat)};
+}
+function categorize(desc){return classify(desc,"",-1).category;}
+const ALL_CATS=["Groceries","Dining & Food","Gas & Fuel","Transport","Auto & Vehicle","Shopping","Subscriptions & Software","Utilities & Phone","Housing & Rent","Insurance","Healthcare","Personal Care","Entertainment","Health & Fitness","Travel","Education","Home & Garden","Taxes","Fees & Interest","Cash & ATM","Services","Donations","Uncategorized","Income","Interest","Cashback & Rewards","Refunds","Financial Aid","Deposits","Other Income","Transfers","Credit Card Payment","P2P Transfer","Investments"];
+const CAT_COLORS={};
+ALL_CATS.forEach((c,i)=>{CAT_COLORS[c]=`var(--c${i%10})`;});
+
+// ---- Budget & profile (mirrors config/budget.json + config/profile.json) ---
+// Generic starter values. DO NOT put real numbers in this file — it's tracked
+// in git. Instead copy config/local_profile.example.js to
+// config/local_profile.js (git-ignored) and edit that; it overrides these via
+// window.LOCAL_BUDGET / window.LOCAL_PROFILE.
+const BUDGET=window.LOCAL_BUDGET||{
+  active_plan:"Current Plan",
+  monthly_income_estimate:3000, monthly_savings_goal:500,
+  category_budgets:{Groceries:300,"Dining & Food":200,"Gas & Fuel":150,Shopping:100,Entertainment:50},
+  discretionary_categories:["Dining & Food","Shopping","Entertainment"],
+  alt_plans:{}
+};
+const PROFILE=window.LOCAL_PROFILE||{
+  investments:{"Example Roth IRA":1000.00},
+  loans:[{name:"Example Student Loan",balance:3000,rate:5.5}],
+  goals:[{name:"Emergency fund (3-6 mo)",current:500,target:3000}]
+};
+let activePlanName=BUDGET.active_plan;
+function planConfig(name){
+  const base={income:BUDGET.monthly_income_estimate,savings:BUDGET.monthly_savings_goal,
+    cats:BUDGET.category_budgets,disc:BUDGET.discretionary_categories};
+  const alt=(BUDGET.alt_plans||{})[name];
+  if(!alt) return base;
+  return {income:alt.monthly_income_estimate??base.income,
+          savings:alt.monthly_savings_goal??base.savings,
+          cats:alt.category_budgets??base.cats, disc:base.disc};
+}
+// "current month" anchored to the latest data we have
+function currentMonthInfo(){
+  if(!TX.length) return null;
+  const last=TX.map(t=>t.date).sort().slice(-1)[0];
+  const [y,m,d]=last.split("-").map(Number);
+  const daysInMonth=new Date(y,m,0).getDate();
+  return {ym:`${y}-${pad(m)}`,day:d,daysInMonth,daysLeft:Math.max(1,daysInMonth-d+1)};
+}
+function mtdSpendByCat(ym){
+  const o={};
+  TX.filter(t=>t.kind==="spend"&&t.date.slice(0,7)===ym).forEach(t=>o[t.category]=(o[t.category]||0)-t.amount);
+  return o;
+}
+
+// ---- CSV parsing ----------------------------------------------------------
+function parseCSV(text){
+  const rows=[];let row=[],field="",q=false;
+  text=text.replace(/\r\n/g,"\n").replace(/\r/g,"\n");
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(q){
+      if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else q=false; }
+      else field+=c;
+    }else{
+      if(c==='"') q=true;
+      else if(c===',') {row.push(field);field="";}
+      else if(c==='\n'){row.push(field);rows.push(row);row=[];field="";}
+      else field+=c;
+    }
+  }
+  if(field!==""||row.length){row.push(field);rows.push(row);}
+  return rows.filter(r=>r.some(c=>c.trim()!==""));
+}
+
+const DATE_HEADERS=["transaction date","trans date","post date","posting date","posted date","date","effective date"];
+const DESC_HEADERS=["description","memo","payee","name","transaction","details","merchant","narrative"];
+const AMOUNT_HEADERS=["amount","transaction amount","amt"];
+const DEBIT_HEADERS=["debit","withdrawal","withdrawals","money out","outflow"];
+const CREDIT_HEADERS=["credit","deposit","deposits","money in","inflow"];
+const BAL_HEADERS=["balance","running balance","ending balance"];
+
+function findCol(hl,aliases){
+  for(let i=0;i<hl.length;i++) if(aliases.includes(hl[i])) return i;
+  for(let i=0;i<hl.length;i++) for(const a of aliases) if(hl[i].includes(a)) return i;
+  return null;
+}
+function parseAmount(raw){
+  if(raw==null) return null;
+  let s=String(raw).trim(); if(!s) return null;
+  let neg=false;
+  if(s.startsWith("(")&&s.endsWith(")")){neg=true;s=s.slice(1,-1);}
+  s=s.replace(/[$,\s]/g,"");
+  if(!s||s==="-") return null;
+  let v=parseFloat(s.replace(/[^0-9.\-]/g,""));
+  if(isNaN(v)) return null;
+  return neg?-v:v;
+}
+function parseDate(raw){
+  if(!raw) return null;
+  const s=String(raw).trim();
+  let m=s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m) return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
+  m=s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if(m){let[_,a,b,y]=m; y=y.length===2?"20"+y:y; return `${y}-${pad(a)}-${pad(b)}`;}
+  const d=new Date(s);
+  if(!isNaN(d)) return d.toISOString().slice(0,10);
+  return null;
+}
+const pad=n=>String(n).padStart(2,"0");
+
+function guessAccount(fn,hl){
+  const f=fn.toLowerCase();
+  const isCredit=/credit|card|visa|mastercard|amex|discover/.test(f);
+  const title=s=>s.replace(/\.[^.]+$/,"").replace(/[_\-]/g," ").replace(/\b\w/g,c=>c.toUpperCase()).replace("Creditcard","Card");
+  let label;
+  if(f.includes("huntington")){
+    if(f.includes("saving")) label="Huntington Savings";
+    else if(f.includes("checking")) label="Huntington Checking";
+    else if(f.includes("credit")||f.includes("card")) label="Huntington Credit Card";
+    else if(f.includes("hub")) label="Huntington Hub";
+    else label=title(fn);
+  }else if(f.includes("discover")){ label="Discover Card"; }
+  else label=title(fn);
+  return {label,isCredit};
+}
+
+function normalizeRows(rows,filename){
+  if(!rows.length) return [];
+  // find header row
+  let hi=0;
+  for(let i=0;i<Math.min(10,rows.length);i++){
+    const low=rows[i].map(c=>c.trim().toLowerCase());
+    if(findCol(low,DATE_HEADERS)!==null &&
+       (findCol(low,AMOUNT_HEADERS)!==null||findCol(low,DEBIT_HEADERS)!==null||findCol(low,CREDIT_HEADERS)!==null)){hi=i;break;}
+  }
+  const hl=rows[hi].map(c=>c.trim().toLowerCase());
+  const di=findCol(hl,DATE_HEADERS), si=findCol(hl,DESC_HEADERS),
+        ai=findCol(hl,AMOUNT_HEADERS), debi=findCol(hl,DEBIT_HEADERS),
+        cri=findCol(hl,CREDIT_HEADERS), bi=findCol(hl,BAL_HEADERS),
+        bci=findCol(hl,["category","transaction category"]);
+  const {label,isCredit}=guessAccount(filename,hl);
+  const cell=(r,i)=> (i!=null&&i<r.length)?r[i]:"";
+  const out=[];
+  for(let r=hi+1;r<rows.length;r++){
+    const row=rows[r];
+    const date=parseDate(cell(row,di));
+    if(!date) continue;
+    let desc=(cell(row,si)||"").trim();
+    if(!desc) desc=row.filter(c=>c.trim()&&c!==cell(row,di)).join(" ")||"(no description)";
+    desc=desc.replace(/\s+/g," ");
+    let amount=ai!=null?parseAmount(cell(row,ai)):null;
+    if(amount==null&&(debi!=null||cri!=null)){
+      const d=debi!=null?parseAmount(cell(row,debi)):null;
+      const c=cri!=null?parseAmount(cell(row,cri)):null;
+      if(c!=null&&c!==0) amount=Math.abs(c);
+      else if(d!=null&&d!==0) amount=-Math.abs(d);
+    }
+    if(amount==null) continue;
+    if(isCredit&&ai!=null&&debi==null&&cri==null) amount=-amount;
+    amount=Math.round(amount*100)/100;
+    const balance=bi!=null?parseAmount(cell(row,bi)):null;
+    const bankCat=(cell(row,bci)||"").trim();
+    const res=classify(desc,bankCat,amount);
+    out.push({date,description:desc,amount,
+      flow:amount>=0?"in":"out",kind:res.kind,category:res.category,
+      bank_category:bankCat,account:label,balance,source_file:filename});
+  }
+  return out;
+}
+
+// ---- State ----------------------------------------------------------------
+let TX=[];                      // all transactions
+let sortKey="date",sortDir=-1; // table sort
+let page=0;
+const filters={from:"",to:"",flow:"all",search:"",min:"",max:"",
+  accounts:new Set(),cats:new Set()};
+
+const LS_KEY="finance_analyzer_tx_v1";
+
+function saveLocal(){ try{localStorage.setItem(LS_KEY,JSON.stringify(TX));}catch(e){} }
+function loadLocal(){
+  try{const s=localStorage.getItem(LS_KEY); if(s){TX=JSON.parse(s); return TX.length>0;}}catch(e){}
+  return false;
+}
+
+// ---- Ingest ---------------------------------------------------------------
+function ingestFiles(fileList){
+  const files=[...fileList];
+  let pending=files.length, added=0;
+  if(!pending) return;
+  files.forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=()=>{
+      try{
+        if(file.name.toLowerCase().endsWith(".json")){
+          const j=JSON.parse(reader.result);
+          const arr=Array.isArray(j)?j:(j.transactions||[]);
+          arr.forEach(t=>{ if(!t.category||!t.kind){const r=classify(t.description||"",t.bank_category||"",t.amount||0); if(!t.category)t.category=r.category; if(!t.kind)t.kind=r.kind;}
+            if(!t.flow) t.flow=(t.amount>=0?"in":"out"); });
+          TX=TX.concat(arr); added+=arr.length;
+        }else{
+          const rows=parseCSV(reader.result);
+          const norm=normalizeRows(rows,file.name);
+          TX=TX.concat(norm); added+=norm.length;
+        }
+      }catch(e){ toast("Error parsing "+file.name+": "+e.message); }
+      if(--pending===0) finishIngest(added);
+    };
+    reader.readAsText(file);
+  });
+}
+function finishIngest(added){
+  // de-dupe
+  const seen=new Set(),dd=[];
+  for(const t of TX){
+    const k=t.date+"|"+t.amount+"|"+t.description+"|"+t.account;
+    if(seen.has(k)) continue; seen.add(k); dd.push(t);
+  }
+  TX=dd;
+  saveLocal();
+  buildFilterControls();
+  resetFiltersSilent();
+  render();
+  toast(`Imported — ${added} parsed, ${TX.length} total transactions.`);
+}
+
+// ---- Filter controls ------------------------------------------------------
+function buildFilterControls(){
+  const accts=[...new Set(TX.map(t=>t.account))].sort();
+  const cats=[...new Set(TX.map(t=>t.category))].sort();
+  document.getElementById("acctChecks").innerHTML=accts.map(a=>
+    `<label><input type="checkbox" class="acct" value="${esc(a)}" checked>${esc(a)}</label>`).join("")||'<span class="muted">—</span>';
+  document.getElementById("catChecks").innerHTML=cats.map(c=>
+    `<label><input type="checkbox" class="cat" value="${esc(c)}" checked>
+      <span style="width:9px;height:9px;border-radius:2px;background:${CAT_COLORS[c]||'#888'};display:inline-block"></span>${esc(c)}</label>`).join("");
+  document.querySelectorAll(".acct,.cat").forEach(cb=>cb.addEventListener("change",()=>{collectChecks();render();}));
+  // date bounds
+  const dates=TX.map(t=>t.date).sort();
+  if(dates.length){
+    document.getElementById("fDateFrom").min=dates[0];
+    document.getElementById("fDateTo").max=dates[dates.length-1];
+  }
+}
+function collectChecks(){
+  filters.accounts=new Set([...document.querySelectorAll(".acct:checked")].map(c=>c.value));
+  filters.cats=new Set([...document.querySelectorAll(".cat:checked")].map(c=>c.value));
+}
+function setAllCats(v){ document.querySelectorAll(".cat").forEach(c=>c.checked=v); collectChecks(); render(); }
+
+// ---- Filtering ------------------------------------------------------------
+function applyFilters(){
+  const minV=filters.min!==""?parseFloat(filters.min):null;
+  const maxV=filters.max!==""?parseFloat(filters.max):null;
+  const s=filters.search.toLowerCase();
+  return TX.filter(t=>{
+    if(filters.from&&t.date<filters.from) return false;
+    if(filters.to&&t.date>filters.to) return false;
+    if(filters.flow!=="all"&&t.flow!==filters.flow) return false;
+    if(filters.accounts.size&&!filters.accounts.has(t.account)) return false;
+    if(filters.cats.size&&!filters.cats.has(t.category)) return false;
+    if(s&&!t.description.toLowerCase().includes(s)) return false;
+    const a=Math.abs(t.amount);
+    if(minV!=null&&a<minV) return false;
+    if(maxV!=null&&a>maxV) return false;
+    return true;
+  });
+}
+
+// ---- Rendering ------------------------------------------------------------
+function fmt(x){const n=Math.abs(x).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});return (x<0?"-$":"$")+n;}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+const monthOf=d=>d.slice(0,7);
+
+function render(){
+  const has=TX.length>0;
+  document.getElementById("empty").style.display=has?"none":"block";
+  document.getElementById("content").style.display=has?"block":"none";
+  document.getElementById("exportBtn").disabled=!has;
+  if(!has){document.getElementById("dataSummary").textContent="No data loaded";return;}
+
+  const f=applyFilters();
+  // kind-aware: income = real money in, spend = real consumption, internal excluded
+  const totalIn=f.filter(t=>t.kind==="income").reduce((a,t)=>a+t.amount,0);
+  const totalOut=-f.filter(t=>t.kind==="spend").reduce((a,t)=>a+t.amount,0);
+  const net=totalIn-totalOut;
+  const internalCount=f.filter(t=>t.kind==="internal").length;
+  const dates=f.map(t=>t.date).sort();
+  const days=dates.length?Math.max(1,(new Date(dates[dates.length-1])-new Date(dates[0]))/864e5+1):1;
+  const months=new Set(f.map(t=>monthOf(t.date))).size||1;
+
+  document.getElementById("dataSummary").textContent=
+    `${TX.length} tx · ${[...new Set(TX.map(t=>t.account))].length} accounts · showing ${f.length} after filters (${internalCount} internal excluded from totals)`;
+
+  // KPIs
+  document.getElementById("kpis").innerHTML=`
+    ${kpi("Income",fmt(totalIn),"in")}
+    ${kpi("Spending",fmt(-totalOut),"out")}
+    ${kpi("Net",fmt(net),net>=0?"in":"out")}
+    ${kpi("Savings rate",totalIn>0?(net/totalIn*100).toFixed(1)+"%":"—")}
+    ${kpi("Avg spend / month",fmt(-totalOut/months))}
+    ${kpi("Transactions",f.length.toLocaleString())}
+  `;
+
+  renderBanner();
+  renderBudget();
+  renderNetWorth();
+  renderWhatIf();
+  renderMonthly(f);
+  renderCategories(f,totalOut);
+  renderCumulative(f);
+  renderMerchants(f);
+  renderRecurring(f);
+  renderLargest(f);
+  renderTable(f);
+}
+function kpi(l,v,cls=""){return `<div class="kpi"><div class="label">${l}</div><div class="val ${cls}">${v}</div></div>`;}
+
+// ---- Safe-to-spend banner -------------------------------------------------
+function safeToSpend(){
+  const mi=currentMonthInfo(); if(!mi) return null;
+  const p=planConfig(activePlanName);
+  const mtd=mtdSpendByCat(mi.ym);
+  const discBudget=p.disc.reduce((a,c)=>a+(p.cats[c]||0),0);
+  const discSpent=p.disc.reduce((a,c)=>a+(mtd[c]||0),0);
+  const left=discBudget-discSpent;
+  return {...mi,discBudget,discSpent,left,perDay:left/mi.daysLeft,
+    perWeek:left/mi.daysLeft*Math.min(7,mi.daysLeft),mtd,plan:p};
+}
+function renderBanner(){
+  const s=safeToSpend(); const el=document.getElementById("banner");
+  if(!s){el.innerHTML="";return;}
+  const over=s.left<0;
+  el.className="banner"+(over?" over":"");
+  const msg=over
+    ? `You're ${fmt(-s.left)} over your discretionary budget for ${s.ym} with ${s.daysLeft} days left. Ease off the extras.`
+    : `${fmt(s.left)} left of your ${fmt(s.discBudget)} discretionary budget (dining, shopping, fun, cash) for ${s.ym} — ${s.daysLeft} days to go.`;
+  el.innerHTML=`
+    <div><div class="lab">Safe to spend today</div><div class="big" style="color:${over?'var(--out)':'var(--in)'}">${over?'$0':fmt(s.perDay)}</div></div>
+    <div class="sep"></div>
+    <div><div class="lab">This week</div><div class="big">${over?'$0':fmt(s.perWeek)}</div></div>
+    <div class="sep"></div>
+    <div class="msg">${msg}<br><small class="tag">Plan: ${esc(activePlanName)} · income ${fmt(s.plan.income)}/mo · savings goal ${fmt(s.plan.savings)}/mo</small></div>`;
+}
+
+// ---- Budget vs actual (current month) -------------------------------------
+function renderBudget(){
+  const mi=currentMonthInfo(); const el=document.getElementById("budgetTable");
+  document.getElementById("budgetMonthLabel").textContent=mi?mi.ym+` (day ${mi.day}/${mi.daysInMonth})`:"";
+  if(!mi){el.innerHTML='<div class="empty">No data</div>';return;}
+  const p=planConfig(activePlanName); const mtd=mtdSpendByCat(mi.ym);
+  const cats=Object.keys(p.cats).sort((a,b)=>p.cats[b]-p.cats[a]);
+  let tb=0,ts=0;
+  const rows=cats.map(c=>{
+    const b=p.cats[c], s=mtd[c]||0, left=b-s; tb+=b; ts+=s;
+    const pct=Math.min(100,b?s/b*100:0);
+    const expected=b*(mi.day/mi.daysInMonth);
+    const col=s>expected*1.15?'var(--out)':(s>expected?'var(--warn)':'var(--in)');
+    const disc=p.disc.includes(c)?' ⚑':'';
+    return `<div class="barrow"><span class="lbl" title="${esc(c)}">${esc(c)}${disc}</span>
+      <span class="track"><span class="fill" style="width:${pct}%;background:${col}"></span></span>
+      <span class="num">${fmt(s)}<small class="tag">/${fmt(b)}</small></span></div>`;
+  }).join("");
+  const gap=p.income-p.savings-tb;
+  el.innerHTML=rows+`
+    <div class="barrow" style="border-top:1px solid var(--border);margin-top:6px;padding-top:8px;font-weight:600">
+      <span class="lbl">TOTAL spent</span><span class="track"></span>
+      <span class="num">${fmt(ts)}<small class="tag">/${fmt(tb)}</small></span></div>
+    <div class="legend" style="margin-top:8px">
+      <span>⚑ discretionary (drives safe-to-spend)</span>
+      <span style="color:${gap>=0?'var(--in)':'var(--out)'}">Income − savings goal − budget = ${fmt(gap)} ${gap>=0?'cushion':'shortfall'}</span>
+    </div>`;
+}
+
+// ---- Net worth ------------------------------------------------------------
+function renderNetWorth(){
+  const el=document.getElementById("netWorth");
+  const inv=Object.entries(PROFILE.investments||{});
+  const invTotal=inv.reduce((a,[,v])=>a+v,0);
+  const loanTotal=(PROFILE.loans||[]).reduce((a,l)=>a+l.balance,0);
+  const net=invTotal-loanTotal;
+  let h='<div class="insightlist">';
+  h+='<div style="font-weight:600;color:var(--muted);font-size:11px;margin-bottom:2px">INVESTMENTS</div>';
+  h+=inv.map(([k,v])=>`<div class="it"><span>${esc(k)}</span><span class="amt in">${fmt(v)}</span></div>`).join("");
+  h+=`<div class="it"><span>Total invested</span><span class="amt in">${fmt(invTotal)}</span></div>`;
+  h+='<div style="font-weight:600;color:var(--muted);font-size:11px;margin:8px 0 2px">LOANS (subsidized · 0% while in school)</div>';
+  h+=(PROFILE.loans||[]).map(l=>`<div class="it"><span>${esc(l.name)} <small class="tag">${l.rate}%</small></span><span class="amt out">${fmt(-l.balance)}</span></div>`).join("");
+  h+=`<div class="it"><span>Total loans</span><span class="amt out">${fmt(-loanTotal)}</span></div>`;
+  h+=`<div class="it" style="border-top:1px solid var(--border);font-weight:700;font-size:15px"><span>Net worth</span><span class="${net>=0?'amt in':'amt out'}">${fmt(net)}</span></div>`;
+  h+='</div>';
+  // goal progress bars
+  const goals=PROFILE.goals||[];
+  if(goals.length){
+    h+='<div style="font-weight:600;color:var(--muted);font-size:11px;margin:10px 0 4px">GOALS</div>';
+    h+=goals.map(g=>{
+      const pct=g.target>0?Math.min(100,g.current/g.target*100):0;
+      const done=pct>=100;
+      return `<div class="barrow"><span class="lbl" title="${esc(g.name)}">${esc(g.name)}</span>
+        <span class="track"><span class="fill" style="width:${pct}%;background:${done?'var(--in)':'var(--accent)'}"></span></span>
+        <span class="num">${pct.toFixed(0)}%<small class="tag"> ${fmt(g.current)}/${fmt(g.target)}</small></span></div>`;
+    }).join("");
+  }
+  h+='<div class="legend" style="margin-top:6px"><span class="muted">Excludes Huntington cash — add it in config/profile.json.</span></div>';
+  el.innerHTML=h;
+}
+
+// ---- What-if cut projector ------------------------------------------------
+let WHATIF_BASE={}, WHATIF_REC=0;
+function recentAvgByCat(n){
+  const bym={};
+  TX.filter(t=>t.kind==="spend").forEach(t=>{const m=t.date.slice(0,7);(bym[m]=bym[m]||{})[t.category]=(bym[m][t.category]||0)-t.amount;});
+  let months=Object.keys(bym).sort();
+  const mi=currentMonthInfo();
+  if(mi&&mi.day<28) months=months.filter(m=>m!==mi.ym);   // drop partial month
+  const rec=months.slice(-n);
+  const avg={};
+  rec.forEach(m=>{for(const c in bym[m])avg[c]=(avg[c]||0)+bym[m][c];});
+  for(const c in avg) avg[c]/=(rec.length||1);
+  return {avg,rec};
+}
+const cssId=s=>s.replace(/[^a-z]/gi,"");
+function renderWhatIf(){
+  const el=document.getElementById("whatif"); if(!el) return;
+  const {avg,rec}=recentAvgByCat(3); WHATIF_REC=rec.length;
+  const order=["Dining & Food","Shopping","Entertainment","Subscriptions & Software","Cash & ATM","Gas & Fuel"];
+  const cats=order.filter(c=>avg[c]>0);
+  if(!cats.length){el.innerHTML='<div class="empty">Need a few months of data.</div>';return;}
+  WHATIF_BASE={}; cats.forEach(c=>WHATIF_BASE[c]=avg[c]);
+  el.innerHTML=cats.map(c=>{
+    const def=(c==="Dining & Food"||c==="Shopping")?30:10;
+    return `<div class="barrow">
+      <span class="lbl" title="${esc(c)}">${esc(c)} <small class="tag">${fmt(avg[c])}/mo</small></span>
+      <input type="range" min="0" max="80" value="${def}" data-cat="${esc(c)}" oninput="recomputeWhatIf()" style="flex:1;accent-color:var(--accent)">
+      <span class="num" id="wi-${cssId(c)}"></span>
+    </div>`;
+  }).join("")+`<div id="whatifTotal" style="margin-top:12px;font-size:15px;font-weight:600"></div>`;
+  recomputeWhatIf();
+}
+function recomputeWhatIf(){
+  let save=0;
+  document.querySelectorAll('#whatif input[type=range]').forEach(inp=>{
+    const c=inp.dataset.cat, pct=+inp.value, base=WHATIF_BASE[c]||0, s=base*pct/100;
+    save+=s;
+    const out=document.getElementById("wi-"+cssId(c));
+    if(out) out.innerHTML=`−${pct}% <small class="tag" style="color:var(--in)">save ${fmt(s)}/mo</small>`;
+  });
+  const t=document.getElementById("whatifTotal");
+  if(t) t.innerHTML=`Projected savings: <span style="color:var(--in)">${fmt(save)}/mo · ${fmt(save*12)}/yr</span> <small class="tag">vs your last ${WHATIF_REC}-month average</small>`;
+}
+
+function onPlanChange(){
+  activePlanName=document.getElementById("planSelect").value;
+  render();
+}
+function buildPlanSelect(){
+  const sel=document.getElementById("planSelect"); if(!sel) return;
+  const names=[BUDGET.active_plan,...Object.keys(BUDGET.alt_plans||{})];
+  sel.innerHTML=names.map(n=>`<option value="${esc(n)}"${n===activePlanName?' selected':''}>${esc(n)}</option>`).join("");
+}
+
+function renderMonthly(f){
+  const mi={},mo={};
+  f.forEach(t=>{const m=monthOf(t.date); if(t.kind==="income")mi[m]=(mi[m]||0)+t.amount; else if(t.kind==="spend")mo[m]=(mo[m]||0)-t.amount;});
+  const months=[...new Set([...Object.keys(mi),...Object.keys(mo)])].sort();
+  if(!months.length){document.getElementById("chartMonthly").innerHTML='<div class="empty">No data</div>';return;}
+  const max=Math.max(1,...months.map(m=>Math.max(mi[m]||0,mo[m]||0)));
+  const W=Math.max(420,months.length*70),H=200,pad=24,bw=Math.min(26,(W-pad*2)/months.length/2.4);
+  let bars="",labels="";
+  months.forEach((m,i)=>{
+    const x=pad+i*((W-pad*2)/months.length)+((W-pad*2)/months.length)/2;
+    const hIn=(mi[m]||0)/max*(H-40), hOut=(mo[m]||0)/max*(H-40);
+    bars+=`<rect x="${x-bw-1}" y="${H-20-hIn}" width="${bw}" height="${hIn}" fill="var(--in)" rx="2"><title>${m} in ${fmt(mi[m]||0)}</title></rect>`;
+    bars+=`<rect x="${x+1}" y="${H-20-hOut}" width="${bw}" height="${hOut}" fill="var(--out)" rx="2"><title>${m} out ${fmt(mo[m]||0)}</title></rect>`;
+    labels+=`<text x="${x}" y="${H-6}" fill="var(--muted)" font-size="10" text-anchor="middle">${m.slice(2)}</text>`;
+  });
+  document.getElementById("chartMonthly").innerHTML=
+    `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet">${bars}${labels}</svg>
+     <div class="legend"><span><i style="background:var(--in)"></i>In</span><span><i style="background:var(--out)"></i>Out</span></div>`;
+}
+
+function renderCategories(f,totalOut){
+  const ct={};
+  f.filter(t=>t.kind==="spend").forEach(t=>ct[t.category]=(ct[t.category]||0)-t.amount);
+  const items=Object.entries(ct).sort((a,b)=>b[1]-a[1]);
+  if(!items.length){document.getElementById("chartCats").innerHTML='<div class="empty">No spending in view</div>';return;}
+  const max=items[0][1];
+  document.getElementById("chartCats").innerHTML=items.map(([c,v])=>`
+    <div class="barrow">
+      <span class="lbl" title="${esc(c)}">${esc(c)}</span>
+      <span class="track"><span class="fill" style="width:${v/max*100}%;background:${CAT_COLORS[c]||'#888'}"></span></span>
+      <span class="num">${fmt(v)} <small class="tag">${totalOut?(v/totalOut*100).toFixed(0):0}%</small></span>
+    </div>`).join("");
+}
+
+function renderCumulative(f){
+  const sorted=[...f].sort((a,b)=>a.date<b.date?-1:1);
+  if(!sorted.length){document.getElementById("chartCumulative").innerHTML='<div class="empty">No data</div>';return;}
+  let cum=0; const pts=sorted.map(t=>{cum+=t.amount;return {d:t.date,v:cum};});
+  const vals=pts.map(p=>p.v), min=Math.min(0,...vals),max=Math.max(0,...vals);
+  const W=480,H=200,pad=30;
+  const xs=i=>pad+i*((W-pad*2)/Math.max(1,pts.length-1));
+  const ys=v=>H-20-((v-min)/((max-min)||1))*(H-40);
+  let d=pts.map((p,i)=>`${i?"L":"M"}${xs(i).toFixed(1)},${ys(p.v).toFixed(1)}`).join(" ");
+  const zeroY=ys(0);
+  const area=`${d} L${xs(pts.length-1)},${H-20} L${pad},${H-20} Z`;
+  document.getElementById("chartCumulative").innerHTML=`
+    <svg viewBox="0 0 ${W} ${H}" width="100%">
+      <line x1="${pad}" y1="${zeroY}" x2="${W-pad}" y2="${zeroY}" stroke="var(--border)" stroke-dasharray="3"/>
+      <path d="${area}" fill="var(--accent)" opacity="0.12"/>
+      <path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2"/>
+      <text x="${pad}" y="14" fill="var(--muted)" font-size="10">${pts[0].d}</text>
+      <text x="${W-pad}" y="14" fill="var(--muted)" font-size="10" text-anchor="end">end ${fmt(cum)}</text>
+    </svg>`;
+}
+
+function merchantKey(desc){
+  let s=desc.toUpperCase().replace(/\b\d{2,}\b/g,"").replace(/[*#].*$/,"")
+    .replace(/\s+(POS|PURCHASE|DEBIT|CARD|PAYMENT|ONLINE|RECURRING)\b/g," ")
+    .replace(/[^A-Z& ]/g," ").replace(/\s+/g," ").trim();
+  return s.slice(0,28)||desc.slice(0,28);
+}
+function renderMerchants(f){
+  const mt={},mc={};
+  f.filter(t=>t.kind==="spend"&&t.category!=="Cash & ATM").forEach(t=>{
+    const k=merchantKey(t.description); mt[k]=(mt[k]||0)-t.amount; mc[k]=(mc[k]||0)+1;});
+  const items=Object.entries(mt).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  if(!items.length){document.getElementById("chartMerchants").innerHTML='<div class="empty">No spending in view</div>';return;}
+  const max=items[0][1];
+  document.getElementById("chartMerchants").innerHTML=items.map(([k,v])=>`
+    <div class="barrow">
+      <span class="lbl" title="${esc(k)}">${esc(k)}</span>
+      <span class="track"><span class="fill" style="width:${v/max*100}%;background:var(--c0)"></span></span>
+      <span class="num">${fmt(v)} <small class="tag">${mc[k]}x</small></span>
+    </div>`).join("");
+}
+
+function renderRecurring(f){
+  const byM={};
+  f.filter(t=>t.kind==="spend").forEach(t=>{const k=merchantKey(t.description);(byM[k]=byM[k]||[]).push(t);});
+  const rec=[];
+  for(const [k,items] of Object.entries(byM)){
+    const months=new Set(items.map(t=>monthOf(t.date)));
+    if(months.size<3) continue;
+    // Cadence test: subscriptions hit ~once a month. Skip merchants charged far
+    // more often than the number of months (weekly groceries, gas, etc.).
+    if(items.length>Math.round(months.size*1.4)) continue;
+    const amts=items.map(t=>-t.amount).sort((a,b)=>a-b);
+    const med=amts[Math.floor(amts.length/2)];
+    if(med<=0) continue;
+    const spread=(amts[amts.length-1]-amts[0])/med;
+    if(spread<=0.25) rec.push({k,med,n:months.size,yr:med*12});
+  }
+  rec.sort((a,b)=>b.yr-a.yr);
+  const el=document.getElementById("insRecurring");
+  if(!rec.length){el.innerHTML='<div class="empty">Need ≥3 months of data to detect recurring charges.</div>';return;}
+  const annual=rec.reduce((a,r)=>a+r.yr,0);
+  el.innerHTML=rec.map(r=>`<div class="it"><span>${esc(r.k)} <small class="tag">${r.n} mo</small></span>
+    <span>${fmt(r.med)}<small class="tag"> ≈${fmt(r.yr)}/yr</small></span></div>`).join("")
+    +`<div class="it" style="font-weight:600"><span>Est. recurring / year</span><span>${fmt(annual)}</span></div>`;
+}
+
+function renderLargest(f){
+  const spend=f.filter(t=>t.kind==="spend").sort((a,b)=>a.amount-b.amount).slice(0,8);
+  // anomalies
+  const catAmts={};
+  f.filter(t=>t.kind==="spend").forEach(t=>(catAmts[t.category]=catAmts[t.category]||[]).push(-t.amount));
+  const flags=[];
+  f.filter(t=>t.kind==="spend").forEach(t=>{
+    const a=catAmts[t.category]; if(a.length<5) return;
+    const sorted=[...a].sort((x,y)=>x-y); const med=sorted[Math.floor(sorted.length/2)];
+    if(med>0&&-t.amount>med*4&&-t.amount>75) flags.push(t);
+  });
+  const el=document.getElementById("insLarge");
+  let html='<div style="font-weight:600;color:var(--muted);font-size:11px;margin-bottom:4px">LARGEST EXPENSES</div>';
+  html+=spend.map(t=>`<div class="it"><span class="desc" title="${esc(t.description)}">${esc(t.date)} · ${esc(t.description.slice(0,32))}</span><span class="amt out">${fmt(t.amount)}</span></div>`).join("")||'<div class="empty">—</div>';
+  if(flags.length){
+    html+='<div style="font-weight:600;color:var(--warn);font-size:11px;margin:10px 0 4px">⚠ ANOMALIES (≫ category norm)</div>';
+    html+=flags.sort((a,b)=>a.amount-b.amount).slice(0,6).map(t=>`<div class="it"><span class="desc">${esc(t.date)} · ${esc(t.category)} · ${esc(t.description.slice(0,24))}</span><span class="amt out">${fmt(t.amount)}</span></div>`).join("");
+  }
+  el.innerHTML=html;
+}
+
+function renderTable(f){
+  const sorted=[...f].sort((a,b)=>{
+    let x=a[sortKey],y=b[sortKey];
+    if(sortKey==="amount"){x=a.amount;y=b.amount;}
+    if(x<y) return -sortDir; if(x>y) return sortDir; return 0;
+  });
+  const ps=parseInt(document.getElementById("pageSize").value);
+  const pages=Math.max(1,Math.ceil(sorted.length/ps));
+  if(page>=pages) page=pages-1; if(page<0) page=0;
+  const slice=sorted.slice(page*ps,page*ps+ps);
+  document.getElementById("txBody").innerHTML=slice.map(t=>`
+    <tr>
+      <td>${esc(t.date)}</td>
+      <td class="desc" title="${esc(t.description)}">${esc(t.description)}</td>
+      <td><span class="pill" style="border-color:${CAT_COLORS[t.category]||'#888'}">${esc(t.category)}</span></td>
+      <td>${esc(t.account)}</td>
+      <td class="amt ${t.amount<0?'out':'in'}">${fmt(t.amount)}</td>
+    </tr>`).join("")||'<tr><td colspan="5" class="empty">No transactions match filters</td></tr>';
+  document.getElementById("txCount").textContent=`${f.length} match · page ${page+1}/${pages}`;
+  document.getElementById("pageInfo").textContent=`Page ${page+1} of ${pages}`;
+}
+function pageDelta(d){page+=d;render();}
+
+// ---- Export ---------------------------------------------------------------
+function exportCsv(){
+  const f=applyFilters();
+  if(!f.length){toast("Nothing to export.");return;}
+  const head=["date","description","category","account","amount","flow"];
+  const rows=[head.join(",")].concat(f.map(t=>head.map(h=>{
+    let v=t[h]==null?"":String(t[h]);
+    if(/[",\n]/.test(v)) v='"'+v.replace(/"/g,'""')+'"';
+    return v;}).join(",")));
+  const blob=new Blob([rows.join("\n")],{type:"text/csv"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="filtered_transactions.csv"; a.click();
+  toast(`Exported ${f.length} transactions.`);
+}
+
+// ---- Misc UI --------------------------------------------------------------
+function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.style.display="block";clearTimeout(t._t);t._t=setTimeout(()=>t.style.display="none",3500);}
+function dz(e,on){e.preventDefault();e.currentTarget.classList.toggle("drag",!!on);}
+function dropFiles(e){e.preventDefault();e.currentTarget.classList.remove("drag");if(e.dataTransfer.files.length)ingestFiles(e.dataTransfer.files);}
+function clearAll(){ if(!confirm("Remove all loaded transactions from this browser?"))return;
+  TX=[];localStorage.removeItem(LS_KEY);buildFilterControls();render();toast("Cleared.");}
+
+function quickRange(kind){
+  const dates=TX.map(t=>t.date).sort(); if(!dates.length) return;
+  const last=dates[dates.length-1];
+  let from="";
+  if(kind==="all"){from=dates[0];}
+  else if(kind==="ytd"){from=last.slice(0,4)+"-01-01";}
+  else {const d=new Date(last);d.setDate(d.getDate()-parseInt(kind));from=d.toISOString().slice(0,10);}
+  filters.from=from;filters.to=last;
+  document.getElementById("fDateFrom").value=from;
+  document.getElementById("fDateTo").value=last;
+  render();
+}
+function resetFiltersSilent(){
+  filters.from="";filters.to="";filters.flow="all";filters.search="";filters.min="";filters.max="";
+  document.getElementById("fDateFrom").value="";document.getElementById("fDateTo").value="";
+  document.getElementById("fSearch").value="";document.getElementById("fMin").value="";document.getElementById("fMax").value="";
+  document.querySelectorAll("#flowSeg button").forEach(b=>b.classList.toggle("on",b.dataset.flow==="all"));
+  document.querySelectorAll(".acct,.cat").forEach(c=>c.checked=true);
+  collectChecks();
+}
+function resetFilters(){resetFiltersSilent();render();}
+
+// ---- Wire up events -------------------------------------------------------
+document.getElementById("fileInput").addEventListener("change",e=>{if(e.target.files.length)ingestFiles(e.target.files);e.target.value="";});
+document.getElementById("fDateFrom").addEventListener("change",e=>{filters.from=e.target.value;render();});
+document.getElementById("fDateTo").addEventListener("change",e=>{filters.to=e.target.value;render();});
+document.getElementById("fSearch").addEventListener("input",e=>{filters.search=e.target.value;page=0;render();});
+document.getElementById("fMin").addEventListener("input",e=>{filters.min=e.target.value;render();});
+document.getElementById("fMax").addEventListener("input",e=>{filters.max=e.target.value;render();});
+document.querySelectorAll("#flowSeg button").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll("#flowSeg button").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on");filters.flow=b.dataset.flow;page=0;render();}));
+document.querySelectorAll("#txTable th").forEach(th=>th.addEventListener("click",()=>{
+  const k=th.dataset.sort; if(sortKey===k)sortDir*=-1; else{sortKey=k;sortDir=(k==="date"||k==="amount")?-1:1;} render();}));
+// whole-window drag&drop
+window.addEventListener("dragover",e=>e.preventDefault());
+window.addEventListener("drop",e=>{e.preventDefault();});
+
+// ---- Boot -----------------------------------------------------------------
+(function(){
+  buildPlanSelect();
+  if(loadLocal()){ buildFilterControls(); resetFiltersSilent(); }
+  render();
+})();
+</script>
+</body>
+</html>
