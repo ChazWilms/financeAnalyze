@@ -28,6 +28,10 @@ if command -v osascript >/dev/null 2>&1; then
   osascript -e "display notification \"${CLEAN}\" with title \"💸 Finance Analyzer\"" 2>/dev/null || true
 fi
 
+# --- Phone delivery (iMessage / ntfy / email) --------------------------------
+# Configured in config/notify.json (git-ignored); skipped silently if absent.
+python3 scripts/notify.py "$MSG" || true
+
 # --- Phone push examples (uncomment + fill in to enable) --------------------
 # Pushover (https://pushover.net): free, simple phone push
 # curl -s -F "token=APP_TOKEN" -F "user=USER_KEY" -F "message=$MSG" \

@@ -1,0 +1,12 @@
+{
+  "_comment": "Copy to config/notify.json (git-ignored) and fill in the channels you want; leave the rest empty/absent. See scripts/notify.py header for details on each.",
+  "imessage": "+15555551234",
+  "ntfy_topic": "",
+  "email": {
+    "to": "",
+    "user": "",
+    "app_password": "",
+    "smtp_host": "smtp.gmail.com",
+    "smtp_port": 587
+  }
+}

@@ -8,6 +8,7 @@ config/budget.json
 config/local_profile.js
 config/overrides.json
 config/rules.json
+config/notify.json
 config/simplefin_access.url
 config/simplefin_map.json
 !data/raw/.gitkeep
