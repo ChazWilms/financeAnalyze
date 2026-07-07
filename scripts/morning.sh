@@ -12,6 +12,12 @@ cd "$(dirname "$0")/.." || exit 1
 # uncomment the next line to re-normalize before computing.)
 # python3 scripts/normalize.py >/dev/null 2>&1
 
+# Pull fresh transactions first if SimpleFIN auto-sync is set up, so the
+# number reflects yesterday's spending (failures fall back to local data).
+if [ -f config/simplefin_access.url ]; then
+  python3 scripts/simplefin_sync.py >/dev/null 2>&1 || true
+fi
+
 MSG="$(python3 scripts/safe_to_spend.py --message-only)"
 echo "$MSG"
 
