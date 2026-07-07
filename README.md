@@ -81,11 +81,17 @@ cp config/local_profile.example.js config/local_profile.js # dashboard budget + 
 ```
 
 - `config/budget.json` — your budget & plans (scripts fall back to the example
-  until you create it).
+  until you create it). Supports envelope-style rollover: set
+  `"rollover": true` and last month's discretionary surplus/overspend carries
+  into this month's safe-to-spend pool (`"rollover_start": "YYYY-MM"` marks
+  when you started budgeting so earlier months don't count).
 - `config/profile.json` — investment balances, loans, and an `owner_context`
   line used in weekly reports (create it by hand; see APP_INSTRUCTIONS.md).
 - `config/local_profile.js` — the dashboard reads this for your real numbers;
   the tracked `dashboard.html` only ships generic starter values.
+- `config/rules.json` — your own keyword→category rules (local merchants,
+  favorite spots); checked before the built-in rules so they win ties. Copy
+  `config/rules.example.json` to start.
 - `config/overrides.json` — optional one-off categorize corrections
   (e.g. "that $5,000 withdrawal was a car purchase"); format documented in
   `scripts/categorize.py`.

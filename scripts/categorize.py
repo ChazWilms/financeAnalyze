@@ -29,9 +29,33 @@ import json
 import os
 import re
 
-_OVERRIDES_JSON = os.path.join(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__))), "config", "overrides.json")
+_CONFIG_DIR = os.path.join(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))), "config")
+_OVERRIDES_JSON = os.path.join(_CONFIG_DIR, "overrides.json")
+_RULES_JSON = os.path.join(_CONFIG_DIR, "rules.json")
 _overrides_cache = None
+_user_rules_cache = None
+
+
+def _user_rules():
+    """Personal keyword rules from config/rules.json (git-ignored).
+
+    Format: {"rules": [{"category": "Groceries",
+                        "keywords": ["kroger", "fresh thyme"]}]}
+    Checked BEFORE the built-in CATEGORY_RULES, so they win ties — use them
+    for local merchants or to re-route a keyword without editing this file.
+    Copy config/rules.example.json to config/rules.json to start.
+    """
+    global _user_rules_cache
+    if _user_rules_cache is None:
+        try:
+            with open(_RULES_JSON, encoding="utf-8") as f:
+                _user_rules_cache = [
+                    (r["category"], [k.lower() for k in r.get("keywords", [])])
+                    for r in json.load(f).get("rules", [])]
+        except (OSError, ValueError, KeyError):
+            _user_rules_cache = []
+    return _user_rules_cache
 
 
 def _overrides():
@@ -237,7 +261,7 @@ def _norm(text):
 def keyword_category(description):
     """Pure keyword match -> a spending category, or 'Uncategorized'."""
     t = _norm(description)
-    for category, keywords in CATEGORY_RULES:
+    for category, keywords in (*_user_rules(), *CATEGORY_RULES):
         for kw in keywords:
             if kw in t:
                 return category

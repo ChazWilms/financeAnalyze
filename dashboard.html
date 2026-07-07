@@ -307,7 +307,11 @@ const BANK_DEFAULT={"Other":"Uncategorized","Merchandise":"Shopping","Services":
 const INCOME_CATS=new Set(["Income","Interest","Cashback & Rewards","Refunds","Financial Aid","Deposits","Other Income"]);
 const INTERNAL_CATS=new Set(["Transfers","Credit Card Payment","P2P Transfer","Investments"]);
 function _norm(s){return " "+(s||"").toLowerCase().replace(/\s+/g," ").trim()+" ";}
-function keyword_category(desc){const t=_norm(desc);for(const [c,kws] of CATEGORY_RULES)for(const k of kws)if(t.includes(k))return c;return "Uncategorized";}
+function keyword_category(desc){const t=_norm(desc);
+  // Personal rules (window.LOCAL_RULES from config/local_profile.js) win
+  // ties with the built-ins — mirrors config/rules.json in the Python side.
+  for(const r of (window.LOCAL_RULES||[]))for(const k of (r.keywords||[]))if(t.includes(k.toLowerCase()))return r.category;
+  for(const [c,kws] of CATEGORY_RULES)for(const k of kws)if(t.includes(k))return c;return "Uncategorized";}
 function refine_spend_category(desc){const t=_norm(desc);
   if(["atm","cash withdrawal","cash advance","withdrawal"].some(k=>t.includes(k)))return "Cash & ATM";
   if(["overdraft","service charge","finance charge","interest charged","transaction fee","withdrawal fee","late fee","annual fee","nsf"," fee "].some(k=>t.includes(k)))return "Fees & Interest";
@@ -660,8 +664,20 @@ function safeToSpend(){
   const mtd=mtdSpendByCat(mi.ym);
   const discBudget=p.disc.reduce((a,c)=>a+(p.cats[c]||0),0);
   const discSpent=p.disc.reduce((a,c)=>a+(mtd[c]||0),0);
-  const left=discBudget-discSpent;
-  return {...mi,discBudget,discSpent,left,perDay:left/mi.daysLeft,
+  // Envelope-style rollover (opt-in via "rollover": true in the budget):
+  // last month's discretionary surplus/overspend joins this month's pool.
+  // Mirrors scripts/safe_to_spend.py — keep the two in sync.
+  let rollover=0;
+  if(BUDGET.rollover){
+    const [y,m]=mi.ym.split("-").map(Number);
+    const pym=`${m===1?y-1:y}-${pad(m===1?12:m-1)}`;
+    if(pym>=(BUDGET.rollover_start||"")&&TX.some(t=>t.date.slice(0,7)===pym)){
+      const pmtd=mtdSpendByCat(pym);
+      rollover=discBudget-p.disc.reduce((a,c)=>a+(pmtd[c]||0),0);
+    }
+  }
+  const left=discBudget+rollover-discSpent;
+  return {...mi,discBudget,discSpent,rollover,left,perDay:left/mi.daysLeft,
     perWeek:left/mi.daysLeft*Math.min(7,mi.daysLeft),mtd,plan:p};
 }
 function renderBanner(){
@@ -671,7 +687,7 @@ function renderBanner(){
   el.className="banner"+(over?" over":"");
   const msg=over
     ? `You're ${fmt(-s.left)} over your discretionary budget for ${s.ym} with ${s.daysLeft} days left. Ease off the extras.`
-    : `${fmt(s.left)} left of your ${fmt(s.discBudget)} discretionary budget (dining, shopping, fun, cash) for ${s.ym} — ${s.daysLeft} days to go.`;
+    : `${fmt(s.left)} left of your ${fmt(s.discBudget)}${s.rollover?` ${s.rollover>0?"+":"−"} ${fmt(Math.abs(s.rollover))} rollover`:""} discretionary budget (dining, shopping, fun, cash) for ${s.ym} — ${s.daysLeft} days to go.`;
   el.innerHTML=`
     <div><div class="lab">Safe to spend today</div><div class="big" style="color:${over?'var(--out)':'var(--in)'}">${over?'$0':fmt(s.perDay)}</div></div>
     <div class="sep"></div>

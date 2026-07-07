@@ -1,0 +1,13 @@
+{
+  "_comment": "Personal categorization rules — copy this file to config/rules.json (git-ignored) and add your own. Rules are checked BEFORE the built-in keyword rules in scripts/categorize.py, so they win ties. Keywords are case-insensitive substring matches on the transaction description. Mirror them in config/local_profile.js as window.LOCAL_RULES so the dashboard agrees. For one-off corrections to a single transaction, use config/overrides.json instead.",
+  "rules": [
+    {
+      "category": "Groceries",
+      "keywords": ["my local market", "corner grocer"]
+    },
+    {
+      "category": "Dining & Food",
+      "keywords": ["favorite taco truck"]
+    }
+  ]
+}

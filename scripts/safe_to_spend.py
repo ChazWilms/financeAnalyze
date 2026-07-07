@@ -28,7 +28,7 @@ import calendar
 import json
 import os
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TX_JSON = os.path.join(REPO, "data", "normalized", "transactions.json")
@@ -80,7 +80,28 @@ def compute(today, budget, tx):
     # ---- discretionary safe-to-spend -------------------------------------
     disc_budget = sum(cat_budget.get(c, 0) for c in disc)
     disc_spent = sum(mtd.get(c, 0) for c in disc)
-    disc_left = disc_budget - disc_spent
+
+    # Envelope-style rollover (opt-in via "rollover": true in budget.json):
+    # carry LAST month's discretionary surplus/overspend into this month's
+    # pool. Only the immediately-previous month rolls (no compounding), only
+    # if we have data for it, and it's valued against the CURRENT plan's
+    # budget (plans can change month to month; this keeps it predictable).
+    # "rollover_start": "YYYY-MM" excludes months from before you started
+    # budgeting — otherwise your first budgeted month inherits a penalty
+    # from spending you'd never planned against.
+    rollover = 0.0
+    if budget.get("rollover"):
+        prev_ym = (date(today.year, today.month, 1)
+                   - timedelta(days=1)).strftime("%Y-%m")
+        if (prev_ym >= budget.get("rollover_start", "")
+                and any(t["date"][:7] == prev_ym for t in tx)):
+            prev_spent = sum(-t["amount"] for t in tx
+                             if t.get("kind") == "spend"
+                             and t["date"][:7] == prev_ym
+                             and t["category"] in disc)
+            rollover = disc_budget - prev_spent
+
+    disc_left = disc_budget + rollover - disc_spent
     per_day = disc_left / days_left
     per_week = per_day * min(7, days_left)
 
@@ -88,6 +109,7 @@ def compute(today, budget, tx):
         "ym": ym, "day": day, "days_in_month": days_in_month,
         "days_left": days_left, "mtd": mtd, "cat_budget": cat_budget,
         "disc": disc, "disc_budget": disc_budget, "disc_spent": disc_spent,
+        "rollover": rollover,
         "disc_left": disc_left, "per_day": per_day, "per_week": per_week,
     }
 
@@ -98,9 +120,13 @@ def morning_message(c, plan):
                 f"discretionary budget for {c['ym']} with {c['days_left']} days "
                 f"left. Try to spend $0 on extras the rest of the month.")
     emoji = "💸" if c["per_day"] >= 10 else "🟡"
+    pool = money(c["disc_budget"])
+    if c.get("rollover"):
+        sign = "+" if c["rollover"] > 0 else "−"
+        pool += f" {sign} {money(abs(c['rollover']))} rollover"
     return (f"{emoji} Safe to spend today: ~{money(c['per_day'])}  ·  "
             f"this week: ~{money(c['per_week'])}  "
-            f"({money(c['disc_left'])} left of your {money(c['disc_budget'])} "
+            f"({money(c['disc_left'])} left of your {pool} "
             f"discretionary budget, {c['days_left']} days to go) [{plan}]")
 
 
@@ -127,6 +153,9 @@ def full_report(c, budget, plan):
     w(f"  {'TOTAL':24s}{money(total_b):>10s}{money(total_s):>10s}"
       f"{money(total_b-total_s):>10s}")
     w("  ⚑ = discretionary (drives the daily safe-to-spend number)")
+    if c.get("rollover"):
+        w(f"  Rollover from last month: {money(c['rollover'])} "
+          f"(envelope-style; set \"rollover\": false in budget.json to disable)")
     w("")
     inc = budget.get("monthly_income_estimate")
     sav = budget.get("monthly_savings_goal")

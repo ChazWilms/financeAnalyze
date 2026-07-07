@@ -25,3 +25,12 @@ window.LOCAL_PROFILE = {
   loans: [{ name: "Example Student Loan", balance: 3000, rate: 5.5 }],
   goals: [{ name: "Emergency fund (3-6 mo)", current: 500, target: 3000 }]
 };
+// Optional: personal keyword->category rules, checked before the built-ins.
+// Mirror config/rules.json here so the dashboard categorizes the same way.
+// window.LOCAL_RULES = [
+//   { category: "Groceries", keywords: ["my local market"] }
+// ];
+// Optional: one-off corrections, mirroring config/overrides.json.
+// window.LOCAL_OVERRIDES = [
+//   { description: "withdrawal", amount: -5000, category: "Auto & Vehicle", kind: "spend" }
+// ];

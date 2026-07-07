@@ -7,6 +7,7 @@ config/profile.json
 config/budget.json
 config/local_profile.js
 config/overrides.json
+config/rules.json
 config/simplefin_access.url
 config/simplefin_map.json
 !data/raw/.gitkeep
@@ -17,6 +18,7 @@ config/simplefin_map.json
 #   config/budget.json        <- cp config/budget.example.json      (scripts fall back to the example automatically)
 #   config/local_profile.js   <- cp config/local_profile.example.js (dashboard personal numbers)
 #   config/overrides.json     <- optional one-off categorize corrections
+#   config/rules.json         <- cp config/rules.example.json     (your keyword->category rules)
 #   config/profile.json       <- balances, loans, owner_context
 
 # examples/ holds only synthetic demo data — safe to keep

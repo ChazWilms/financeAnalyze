@@ -1,6 +1,8 @@
 {
-  "_comment": "Your active monthly budget. Edit these as your situation changes. 'discretionary_categories' are the ones the daily/weekly safe-to-spend number is calculated from — the flexible stuff you control day to day.",
+  "_comment": "Your active monthly budget. Edit these as your situation changes. 'discretionary_categories' are the ones the daily/weekly safe-to-spend number is calculated from — the flexible stuff you control day to day. Set 'rollover': true for envelope-style budgeting: last month's discretionary surplus/overspend carries into this month's safe-to-spend pool. 'rollover_start' (YYYY-MM) is the first month that counts — set it to when you began budgeting.",
   "active_plan": "Current Plan",
+  "rollover": false,
+  "rollover_start": "",
   "monthly_income_estimate": 3000,
   "monthly_savings_goal": 500,
   "category_budgets": {

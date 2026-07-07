@@ -49,6 +49,7 @@ FinanceAnalyzer/
 │   ├── profile.json             ← investments + loans + owner_context (git-ignored)
 │   ├── local_profile.example.js ← tracked template; copy to local_profile.js
 │   ├── local_profile.js         ← dashboard's real budget/profile (git-ignored)
+│   ├── rules.json               ← personal keyword→category rules (git-ignored)
 │   └── overrides.json           ← one-off categorize corrections (git-ignored)
 ├── examples/                    ← synthetic sample CSV for testing (NOT scanned)
 └── reports/                     ← saved markdown reports land here
@@ -158,9 +159,14 @@ How the accounts "connect" (both paths wired; see `CONNECT_ACCOUNTS.md`):
 
 ## Improving accuracy over time
 
-- **Miscategorized merchants?** Add keywords to `CATEGORY_RULES` in
-  `scripts/categorize.py` AND the mirrored `CATEGORY_RULES` block near the top
-  of `dashboard.html`. Keep them in sync. Re-run `normalize.py` + `analyze.py`.
+- **Miscategorized merchants?** Add a rule to `config/rules.json` (git-ignored;
+  copy `config/rules.example.json`) and mirror it as `window.LOCAL_RULES` in
+  `config/local_profile.js` — user rules are checked before the built-ins, so
+  they win ties. Re-run `normalize.py` + `analyze.py`. Only edit the tracked
+  `CATEGORY_RULES` (in `scripts/categorize.py` + `dashboard.html`, kept in
+  sync) for genuinely universal merchants everyone would want.
+- **One transaction wrong** (not a merchant pattern)? Use `config/overrides.json`
+  (+ `window.LOCAL_OVERRIDES` in local_profile.js for the dashboard).
 - **A new bank/card format won't parse?** Add its header names to the
   `*_HEADERS` alias lists in `normalize.py` (and the matching consts in
   `dashboard.html`). Add a new date format to `DATE_FORMATS` if needed.
