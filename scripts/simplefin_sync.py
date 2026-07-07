@@ -23,7 +23,12 @@ One-time setup
    First run writes config/simplefin_map.json listing your accounts —
    edit it so each SimpleFIN account maps to the right canonical name
    (discover_creditcard / huntington_checking / huntington_hub /
-   huntington_savings), then run again.
+   huntington_savings), then run again. Two special values:
+     "investments" — brokerage/retirement accounts (e.g. Schwab): the
+       account's BALANCE is written into config/profile.json investments
+       (transactions are not imported — brokerage activity isn't spending).
+       Optional "display" key names the profile.json entry to update.
+     "ignore" — skip this account entirely.
 
 Routine use:  python3 scripts/simplefin_sync.py   (weekly.sh calls this
 automatically if the access URL exists). Fetches each account since the day
@@ -107,12 +112,30 @@ def last_dates_by_label():
     return out
 
 
+def update_profile_investments(updates):
+    """Write fresh balances into config/profile.json 'investments'."""
+    prof_file = os.path.join(REPO, "config", "profile.json")
+    try:
+        with open(prof_file, encoding="utf-8") as f:
+            prof = json.load(f)
+    except (OSError, ValueError):
+        prof = {}
+    inv = prof.setdefault("investments", {})
+    inv.update(updates)
+    prof["as_of"] = datetime.now().strftime("%Y-%m-%d")
+    with open(prof_file, "w", encoding="utf-8") as f:
+        json.dump(prof, f, indent=2)
+        f.write("\n")
+
+
 def load_or_seed_map(accounts):
     if os.path.exists(MAP_FILE):
         with open(MAP_FILE) as f:
             return json.load(f)
     seed = {"_instructions":
-            "Map each SimpleFIN account id to one of: " + ", ".join(CANONICAL),
+            "Map each SimpleFIN account id to one of: " + ", ".join(CANONICAL)
+            + ", or 'investments' (balance -> config/profile.json; optional "
+              "'display' key names the entry), or 'ignore' (skip).",
             "accounts": {}}
     for a in accounts:
         name = f"{a.get('org', {}).get('name', '?')} {a.get('name', '?')}"
@@ -126,6 +149,9 @@ def load_or_seed_map(accounts):
             guess = "huntington_checking"
         elif "hub" in low:
             guess = "huntington_hub"
+        elif any(k in low for k in ("schwab", "brokerage", "ira", "invest",
+                                    "fidelity", "vanguard", "401")):
+            guess = "investments"
         seed["accounts"][a["id"]] = {"name": name, "maps_to": guess}
     with open(MAP_FILE, "w") as f:
         json.dump(seed, f, indent=2)
@@ -176,11 +202,19 @@ def main(argv):
 
     stamp = datetime.now().strftime("%Y%m%d")
     wrote_any = False
+    inv_updates = {}
     for a in accounts:
         entry = amap["accounts"].get(a["id"])
         if not entry or not entry.get("maps_to"):
             continue
         stem = entry["maps_to"]
+        if stem == "ignore":
+            continue
+        if stem == "investments":
+            if a.get("balance") is not None:
+                inv_updates[entry.get("display") or entry["name"]] = \
+                    float(a["balance"])
+            continue
         cutoff = starts.get(stem, default_start).strftime("%Y-%m-%d")
         rows = []
         for t in a.get("transactions", []):
@@ -207,6 +241,11 @@ def main(argv):
         print(f"  {entry['name']:35s} {len(rows):4d} new -> "
               f"{os.path.basename(dest)}")
         wrote_any = True
+
+    if inv_updates:
+        update_profile_investments(inv_updates)
+        for name, bal in sorted(inv_updates.items()):
+            print(f"  {name:35s} balance ${bal:,.2f} -> config/profile.json")
 
     if wrote_any:
         print("\n▶ Normalizing…", flush=True)

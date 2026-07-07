@@ -58,6 +58,13 @@ selling data, read-only access). Setup is four steps — see the header of
 `scripts/simplefin_sync.py`. After that, `weekly.sh` automatically pulls new
 transactions every week before building the report; no more exports.
 
+Brokerage accounts (Schwab, Fidelity, etc.) can be connected too: map them to
+`"investments"` in `config/simplefin_map.json` and the sync keeps their
+**balances** fresh in `config/profile.json` for the net-worth view (their
+transactions aren't imported — buys/sells aren't spending). Check
+institution support first at bridge.simplefin.org → "Supported institutions";
+availability comes and goes per bank.
+
 **Tradeoff to be clear about:** you're giving your Discover + Huntington
 logins to their aggregator (MX), and your transaction data transits their
 servers. That's the industry-standard mechanism (every budgeting app works
