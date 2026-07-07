@@ -118,6 +118,28 @@ def build(tx, budget, profile, today):
           f"then run `python3 scripts/refresh.py`).")
         w("")
 
+    # ---- Expected income (profile.json "income_schedule", optional) --------
+    # Keeps paychecks visible even when the bank account they land in is
+    # stale: {"amount": ..., "cadence_days": 14, "last_paid": "YYYY-MM-DD"}.
+    sched = profile.get("income_schedule") or {}
+    if sched.get("amount") and sched.get("last_paid"):
+        cadence = timedelta(days=int(sched.get("cadence_days", 14)))
+        payday = datetime.strptime(sched["last_paid"], "%Y-%m-%d").date()
+        recent = []
+        while payday <= today + cadence:
+            if payday >= wk_start:
+                recent.append(payday)
+            payday += cadence
+        if recent:
+            w("**Expected paychecks** (from profile.json, "
+              f"{money(sched['amount'])} every {cadence.days} days): "
+              + ", ".join(iso(d) + (" (upcoming)" if d > today else "")
+                          for d in recent)
+              + (". Paydays on/before today that don't appear in Income "
+                 "below usually mean the receiving account is stale."
+                 if stale else "."))
+            w("")
+
     # ---- This week ----------------------------------------------------------
     tot_in = sum(t["amount"] for t in wk_income)
     tot_out = sum(t["amount"] for t in wk_spend)          # negative
