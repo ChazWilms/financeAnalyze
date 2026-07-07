@@ -46,6 +46,10 @@ import sys
 import urllib.request
 from datetime import datetime, timedelta
 
+# The Bridge's CDN rejects Python's default urllib user-agent with a 403,
+# so every request must send a real-looking one.
+USER_AGENT = "FinanceAnalyzer/1.0 (personal finance sync)"
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAW_DIR = os.path.join(REPO, "data", "raw")
 NORM_FILE = os.path.join(REPO, "data", "normalized", "transactions.json")
@@ -65,7 +69,8 @@ STEM_TO_LABEL = {
 
 def claim_setup_token(token):
     claim_url = base64.b64decode(token.strip()).decode()
-    req = urllib.request.Request(claim_url, method="POST", data=b"")
+    req = urllib.request.Request(claim_url, method="POST", data=b"",
+                                 headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(req, timeout=30) as resp:
         access_url = resp.read().decode().strip()
     os.makedirs(os.path.dirname(ACCESS_FILE), exist_ok=True)
@@ -92,10 +97,12 @@ def fetch_accounts(access_url, start_epoch):
         url = f"{scheme}://{host}/accounts?start-date={start_epoch}&pending=0"
         creds = base64.b64encode(auth.encode()).decode()
         req = urllib.request.Request(url,
-                                     headers={"Authorization": f"Basic {creds}"})
+                                     headers={"Authorization": f"Basic {creds}",
+                                              "User-Agent": USER_AGENT})
     else:
         req = urllib.request.Request(
-            f"{access_url}/accounts?start-date={start_epoch}&pending=0")
+            f"{access_url}/accounts?start-date={start_epoch}&pending=0",
+            headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(req, timeout=60) as resp:
         return json.load(resp)
 
