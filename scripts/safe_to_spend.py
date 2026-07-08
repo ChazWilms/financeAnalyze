@@ -32,9 +32,30 @@ from datetime import date, datetime, timedelta
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TX_JSON = os.path.join(REPO, "data", "normalized", "transactions.json")
+PENDING_JSON = os.path.join(REPO, "data", "normalized", "pending.json")
 BUDGET_JSON = os.path.join(REPO, "config", "budget.json")
 if not os.path.exists(BUDGET_JSON):  # fresh clone — fall back to the example
     BUDGET_JSON = os.path.join(REPO, "config", "budget.example.json")
+
+# Card transactions post 1-3 days late, so "posted-only" undercounts what you
+# actually spent this morning. simplefin_sync.py snapshots PENDING charges to
+# pending.json; we subtract the discretionary ones from today's number IF the
+# snapshot is fresh (a stale one would double-count charges that have since
+# posted and been imported).
+PENDING_MAX_AGE_HOURS = 36
+
+
+def load_pending(today):
+    try:
+        with open(PENDING_JSON, encoding="utf-8") as f:
+            snap = json.load(f)
+        fetched = datetime.fromisoformat(snap["fetched_at"])
+    except (OSError, ValueError, KeyError):
+        return []
+    if (datetime.now() - fetched).total_seconds() > PENDING_MAX_AGE_HOURS * 3600:
+        return []
+    ym = today.strftime("%Y-%m")
+    return [p for p in snap.get("items", []) if p["date"][:7] == ym]
 
 
 def money(x):
@@ -101,7 +122,18 @@ def compute(today, budget, tx):
                              and t["category"] in disc)
             rollover = disc_budget - prev_spent
 
-    disc_left = disc_budget + rollover - disc_spent
+    # Pending card charges (not yet posted/imported) count against today.
+    import categorize  # sibling module; scripts/ is on sys.path when run
+    pending_by_cat = defaultdict(float)
+    for p in load_pending(today):
+        if p["amount"] >= 0:
+            continue
+        r = categorize.classify(p["description"], "", p["amount"])
+        if r["kind"] == "spend":
+            pending_by_cat[r["category"]] += -p["amount"]
+    pending_disc = sum(pending_by_cat.get(c, 0) for c in disc)
+
+    disc_left = disc_budget + rollover - disc_spent - pending_disc
     per_day = disc_left / days_left
     per_week = per_day * min(7, days_left)
 
@@ -110,24 +142,52 @@ def compute(today, budget, tx):
         "days_left": days_left, "mtd": mtd, "cat_budget": cat_budget,
         "disc": disc, "disc_budget": disc_budget, "disc_spent": disc_spent,
         "rollover": rollover,
+        "pending_by_cat": pending_by_cat, "pending_disc": pending_disc,
+        "data_through": max((t["date"] for t in tx), default="?"),
         "disc_left": disc_left, "per_day": per_day, "per_week": per_week,
     }
 
 
+def _short(cat):
+    return cat.split(" & ")[0]
+
+
 def morning_message(c, plan):
-    if c["disc_left"] < 0:
-        return (f"⚠️ Over budget: you're {money(-c['disc_left'])} past your "
-                f"discretionary budget for {c['ym']} with {c['days_left']} days "
-                f"left. Try to spend $0 on extras the rest of the month.")
-    emoji = "💸" if c["per_day"] >= 10 else "🟡"
+    """Multi-line message: headline, per-category extras breakdown, freshness.
+
+    'Extras' = the discretionary categories only (eating out, shopping, fun,
+    cash). Groceries/gas/bills have their own monthly budgets in the full
+    table but don't drive this number.
+    """
+    # per-category remaining (posted + pending)
+    parts = []
+    for cat in c["disc"]:
+        left = (c["cat_budget"].get(cat, 0) - c["mtd"].get(cat, 0)
+                - c["pending_by_cat"].get(cat, 0))
+        parts.append(f"{_short(cat)} {'' if left >= 0 else '−'}"
+                     f"${abs(left):,.0f}")
+    breakdown = "Extras left: " + " · ".join(parts)
+
     pool = money(c["disc_budget"])
     if c.get("rollover"):
-        sign = "+" if c["rollover"] > 0 else "−"
-        pool += f" {sign} {money(abs(c['rollover']))} rollover"
-    return (f"{emoji} Safe to spend today: ~{money(c['per_day'])}  ·  "
-            f"this week: ~{money(c['per_week'])}  "
-            f"({money(c['disc_left'])} left of your {pool} "
-            f"discretionary budget, {c['days_left']} days to go) [{plan}]")
+        pool += f" {'+' if c['rollover'] > 0 else '−'} " \
+                f"{money(abs(c['rollover']))} rollover"
+    notes = []
+    if c["pending_disc"]:
+        notes.append(f"{money(c['pending_disc'])} pending counted")
+    notes.append(f"data thru {c['data_through']}")
+    notes.append(f"{c['days_left']} days left in {c['ym']}")
+    footer = "(" + " · ".join(notes) + ")"
+
+    if c["disc_left"] < 0:
+        head = (f"⚠️ Over budget: {money(-c['disc_left'])} past your {pool} "
+                f"extras budget for {c['ym']}. Aim for $0 on extras "
+                f"the rest of the month.")
+    else:
+        emoji = "💸" if c["per_day"] >= 10 else "🟡"
+        head = (f"{emoji} Safe to spend today: ~{money(c['per_day'])} · "
+                f"this week: ~{money(c['per_week'])} · of {pool} [{plan}]")
+    return "\n".join([head, breakdown, footer])
 
 
 def full_report(c, budget, plan):
@@ -156,6 +216,9 @@ def full_report(c, budget, plan):
     if c.get("rollover"):
         w(f"  Rollover from last month: {money(c['rollover'])} "
           f"(envelope-style; set \"rollover\": false in budget.json to disable)")
+    if c["pending_disc"]:
+        w(f"  Pending card charges counted against extras: "
+          f"{money(c['pending_disc'])} (not yet posted; imported once final)")
     w("")
     inc = budget.get("monthly_income_estimate")
     sav = budget.get("monthly_savings_goal")

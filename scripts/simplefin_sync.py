@@ -210,6 +210,7 @@ def main(argv):
     stamp = datetime.now().strftime("%Y%m%d")
     wrote_any = False
     inv_updates = {}
+    pending_items = []
     for a in accounts:
         entry = amap["accounts"].get(a["id"])
         if not entry or not entry.get("maps_to"):
@@ -226,6 +227,18 @@ def main(argv):
         rows = []
         for t in a.get("transactions", []):
             if t.get("pending"):
+                # Not imported (amounts/descriptions change when they post),
+                # but recorded so safe_to_spend.py can count them against
+                # today's number instead of pretending they don't exist.
+                pending_items.append({
+                    "date": datetime.fromtimestamp(
+                        t.get("transacted_at") or t.get("posted") or 0
+                    ).strftime("%Y-%m-%d"),
+                    "amount": float(t.get("amount", 0)),
+                    "description":
+                        (t.get("description") or t.get("payee") or "").strip(),
+                    "account": STEM_TO_LABEL.get(stem, entry["name"]),
+                })
                 continue
             date = datetime.fromtimestamp(
                 t.get("posted") or t.get("transacted_at") or 0
@@ -253,6 +266,16 @@ def main(argv):
         update_profile_investments(inv_updates)
         for name, bal in sorted(inv_updates.items()):
             print(f"  {name:35s} balance ${bal:,.2f} -> config/profile.json")
+
+    # Always (re)write the pending snapshot — an empty list is meaningful.
+    os.makedirs(os.path.dirname(NORM_FILE), exist_ok=True)
+    with open(os.path.join(os.path.dirname(NORM_FILE), "pending.json"),
+              "w", encoding="utf-8") as f:
+        json.dump({"fetched_at": datetime.now().isoformat(timespec="seconds"),
+                   "items": pending_items}, f, indent=2)
+    if pending_items:
+        print(f"  {len(pending_items)} pending transaction(s) noted "
+              f"(counted by safe_to_spend, imported once they post)")
 
     if wrote_any:
         print("\n▶ Normalizing…", flush=True)

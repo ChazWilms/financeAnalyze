@@ -3,8 +3,9 @@
 The number you wanted texted to you each morning is already computed by
 `scripts/safe_to_spend.py --message-only`, e.g.:
 
-> 💸 Safe to spend today: ~$25.00 · this week: ~$175.00 ($175.00 left of your
-> $500.00 discretionary budget this month — 7 days to go)
+> 💸 Safe to spend today: ~$25.00 · this week: ~$175.00 · of $500.00 [Current Plan]
+> Extras left: Dining $80 · Shopping $50 · Entertainment $45
+> ($12.50 pending counted · data thru 2026-01-24 · 7 days left in 2026-01)
 
 `scripts/morning.sh` wraps that and pops a **macOS desktop notification**. To
 actually push it to your **phone**, pick one of the options below — then it can
