@@ -40,3 +40,6 @@ if command -v osascript >/dev/null 2>&1; then
   CLEAN="$(printf '%s' "${HEADLINE}${STALE}" | tr -d '"\\')"
   osascript -e "display notification \"${CLEAN}\" with title \"📊 Weekly finance report ready\" subtitle \"reports/weekly/latest.md\"" 2>/dev/null || true
 fi
+
+# Phone delivery (iMessage / ntfy / email — config/notify.json, optional).
+python3 scripts/notify.py "📊 Weekly report ready — ${HEADLINE}${STALE}" || true
