@@ -67,6 +67,7 @@ bash run.sh            # normalize → snapshot → save report
 ```bash
 python3 scripts/safe_to_spend.py          # daily/weekly "safe to spend" + budget vs actual
 python3 scripts/safe_to_spend.py --message-only   # the one-line morning message
+python3 scripts/planning.py plan          # financial-plan analysis: plan vs reality + compare alt plans
 python3 scripts/planning.py subs          # subscription / recurring-charge auditor
 python3 scripts/planning.py fuel          # what premium gas actually costs you
 python3 scripts/planning.py commute       # Columbus: commute-from-home vs rent
@@ -84,7 +85,10 @@ cp config/local_profile.example.js config/local_profile.js # dashboard budget + 
   until you create it). Supports envelope-style rollover: set
   `"rollover": true` and last month's discretionary surplus/overspend carries
   into this month's safe-to-spend pool (`"rollover_start": "YYYY-MM"` marks
-  when you started budgeting so earlier months don't count).
+  when you started budgeting so earlier months don't count). Add what-if
+  scenarios under `"alt_plans"` (see the example file) — `planning.py plan`
+  analyzes and compares them, `safe_to_spend.py --plan "<name>"` runs a day
+  on one, and the dashboard's plan selector switches between them.
 - `config/profile.json` — investment balances, loans, and an `owner_context`
   line used in weekly reports (create it by hand; see APP_INSTRUCTIONS.md).
 - `config/local_profile.js` — the dashboard reads this for your real numbers;

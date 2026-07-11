@@ -2,6 +2,22 @@
 
 Living doc tracking the iterative development (the `/loop`). Newest insights at top.
 
+## ✅ Done (2026-07-11 — financial plan analysis)
+- **planning.py plan** — the plan-analysis tool the alt_plans machinery was
+  missing. For the active plan (or `--plan "<name>"`): on-paper consistency
+  (income − savings goal − budgets = cushion, with SHORTFALL warning),
+  reality check of every category budget vs recent actual averages
+  (`--months`, complete months only), spending that has no budget line,
+  plan-vs-actual income, projected net/mo & /yr both "if budgets hit" and
+  at current pace, savings-goal verdict, and months-to-emergency-fund at
+  both paces. Ends with a side-by-side comparison table of active + all
+  alt_plans. Degrades gracefully with no transaction data (on-paper only).
+- **budget.example.json** now documents the `alt_plans` schema (scalar
+  overrides; `category_budgets` replaces wholesale) — the dashboard's plan
+  switcher and `safe_to_spend.py --plan` already consumed it, but the
+  example never showed it.
+- Docs: README + APP_INSTRUCTIONS quick-refs updated.
+
 ## ✅ Done (2026-07-07 — "connect accounts" + weekly report)
 - **scripts/refresh.py** — auto-ingests new Discover/Huntington exports from
   `~/Downloads` (identifies by header signature; disambiguates Huntington

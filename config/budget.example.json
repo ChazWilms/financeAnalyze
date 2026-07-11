@@ -19,5 +19,22 @@
   ],
   "savings_targets": {
     "emergency_fund_goal": 5000
+  },
+  "_alt_plans_comment": "Optional what-if scenarios. Keys you set override the plan above; 'category_budgets' replaces the whole table (list every category, not just changes). Compare them with `python3 scripts/planning.py plan`, try one day-to-day with `safe_to_spend.py --plan \"<name>\"`, or via the dashboard's plan selector.",
+  "alt_plans": {
+    "Tighter Month": {
+      "monthly_savings_goal": 800,
+      "category_budgets": {
+        "Groceries": 280,
+        "Dining & Food": 120,
+        "Gas & Fuel": 150,
+        "Shopping": 50,
+        "Entertainment": 25
+      }
+    },
+    "New Job": {
+      "monthly_income_estimate": 4200,
+      "monthly_savings_goal": 1500
+    }
   }
 }

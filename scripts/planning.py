@@ -2,16 +2,25 @@
 """
 planning.py — forward-looking "what should I do" calculators for your budget.
 
-Three tools, all with sensible defaults you can override on the command line:
+Tools, all with sensible defaults you can override on the command line:
 
-  1. fuel        — how much your premium-gas habit actually costs (from data),
-                   and what a regular-gas car would save.
-  2. commute     — Columbus decision: live at home & commute (gas + hotel +
-                   wear on the old Benz) vs rent in Columbus. Pure-dollar
-                   comparison PLUS the time cost, so you can weigh it honestly.
-  3. car         — quick car-replacement sinking-fund math.
+  plan      — analyze your budget plan(s): is the plan internally consistent,
+              are the category budgets realistic vs your actual spending, what
+              does it project for savings — and a side-by-side comparison of
+              every plan in budget.json (active_plan + alt_plans).
+  subs      — subscription / recurring-charge auditor with stale flags.
+  loans     — student-loan payoff simulator (time + interest per payment).
+  savings   — savings-rate trend + emergency-fund runway.
+  fuel      — how much your premium-gas habit actually costs (from data),
+              and what a regular-gas car would save.
+  commute   — Columbus decision: live at home & commute (gas + hotel +
+              wear on the old Benz) vs rent in Columbus. Pure-dollar
+              comparison PLUS the time cost, so you can weigh it honestly.
+  car       — quick car-replacement sinking-fund math.
 
 Examples:
+    python3 scripts/planning.py plan
+    python3 scripts/planning.py plan --plan "Tighter Month" --months 6
     python3 scripts/planning.py fuel
     python3 scripts/planning.py commute --rent 1250 --office-days 2 --hotel 110
     python3 scripts/planning.py car --target 8000 --months 14
@@ -60,6 +69,226 @@ def load_tx():
     if not os.path.exists(TX_JSON):
         return []
     return json.load(open(TX_JSON, encoding="utf-8"))["transactions"]
+
+
+# ---------------------------------------------------------------------------
+# plan — financial-plan analysis: sanity-check a plan on paper, reality-check
+# it against actual spending, project savings, and compare all plans.
+# ---------------------------------------------------------------------------
+def _plan_variant(budget, name):
+    """The budget with alt_plan `name` merged in (same semantics as
+    safe_to_spend.apply_plan and the dashboard's planConfig: scalars override,
+    category_budgets replaces wholesale)."""
+    if name == budget.get("active_plan", "Current Plan"):
+        return budget
+    import safe_to_spend  # sibling module; scripts/ is on sys.path when run
+    return safe_to_spend.apply_plan(budget, name)
+
+
+def _actuals(tx, n):
+    """Avg income + per-category spend over the last n COMPLETE months
+    (a trailing partial month would understate everything, so it's dropped —
+    same heuristic as _recent_monthly)."""
+    months = sorted(set(t["date"][:7] for t in tx))
+    if not months:
+        return None
+    last = months[-1]
+    if max(int(t["date"][8:10]) for t in tx if t["date"][:7] == last) < 28:
+        months = months[:-1]
+    recent = set(months[-n:])
+    if not recent:
+        return None
+    cat, inc = defaultdict(float), 0.0
+    for t in tx:
+        if t["date"][:7] not in recent:
+            continue
+        if t["kind"] == "spend":
+            cat[t["category"]] += -t["amount"]
+        elif t["kind"] == "income":
+            inc += t["amount"]
+    k = len(recent)
+    return {"months": sorted(recent), "n": k,
+            "cat_avg": {c: v / k for c, v in cat.items()},
+            "avg_inc": inc / k,
+            "avg_spend": sum(cat.values()) / k}
+
+
+def _plan_metrics(p, actual):
+    cats = {c: v for c, v in (p.get("category_budgets") or {}).items()
+            if isinstance(v, (int, float))}
+    inc = p.get("monthly_income_estimate") or 0
+    sav = p.get("monthly_savings_goal") or 0
+    disc = [c for c in p.get("discretionary_categories", []) if c in cats]
+    m = {"cats": cats, "inc": inc, "sav": sav,
+         "budgeted": sum(cats.values()),
+         "disc_total": sum(cats[c] for c in disc),
+         "goal": (p.get("savings_targets") or {}).get("emergency_fund_goal")}
+    m["cushion"] = inc - sav - m["budgeted"]
+    if actual:
+        m["unbudgeted"] = sum(v for c, v in actual["cat_avg"].items()
+                              if c not in cats)
+        m["net_if_hit"] = inc - m["budgeted"] - m["unbudgeted"]
+    return m
+
+
+def _liquid(prof):
+    """Cash + taxable brokerage — the same 'liquid' proxy cmd_savings uses."""
+    cash = prof.get("cash_accounts", {}) or {}
+    total = sum(v for v in cash.values() if isinstance(v, (int, float)))
+    return total + (prof.get("investments", {}) or {}).get(
+        "Schwab One (taxable)", 0)
+
+
+def _months_to_goal(goal, liquid, rate):
+    if not goal:
+        return None
+    if goal - liquid <= 0:
+        return 0.0
+    if rate <= 0:
+        return math.inf
+    return (goal - liquid) / rate
+
+
+def _fmt_months(n):
+    if n is None:
+        return "—"
+    if n == 0:
+        return "reached ✅"
+    return "never" if math.isinf(n) else f"{n:.1f} mo"
+
+
+def cmd_plan(a):
+    budget = load_budget()
+    if not budget:
+        print("No budget found — copy config/budget.example.json "
+              "to config/budget.json.")
+        return
+    prof = load_profile()
+    actual = _actuals(load_tx(), a.months)
+
+    active = budget.get("active_plan", "Current Plan")
+    alt_names = list(budget.get("alt_plans", {}) or {})
+    focus = a.plan or active
+    if focus != active and focus not in alt_names:
+        raise SystemExit(f"Unknown plan '{focus}'. "
+                         f"Options: {', '.join([active] + alt_names)}")
+    p = _plan_variant(budget, focus)
+    m = _plan_metrics(p, actual)
+
+    print("=" * 68)
+    print(f"FINANCIAL PLAN ANALYSIS — {focus}")
+    print("=" * 68)
+    print("THE PLAN ON PAPER")
+    print(f"  Income estimate       : {money(m['inc'])}/mo")
+    print(f"  Savings goal          : {money(m['sav'])}/mo")
+    print(f"  Budgeted spending     : {money(m['budgeted'])}/mo across "
+          f"{len(m['cats'])} categories ({money(m['disc_total'])} "
+          "discretionary ⚑)")
+    print(f"  Unallocated cushion   : {money(m['cushion'])}/mo   "
+          "(income − savings − budgets)")
+    if m["cushion"] < 0:
+        print("  ⚠ SHORTFALL on paper: the plan commits more than the income")
+        print("    covers — lower the savings goal or trim category budgets.")
+    else:
+        print("  The cushion must absorb everything you did NOT give a budget")
+        print("  line (rent, bills, insurance…) — reality check below.")
+
+    # ---- reality check ----------------------------------------------------
+    if not actual:
+        print("")
+        print("  (No transaction data yet — run scripts/normalize.py to add a")
+        print("   reality check of these budgets against actual spending.)")
+    else:
+        print("")
+        print(f"REALITY CHECK — budgets vs actual avg over "
+              f"{actual['n']} complete month(s) "
+              f"({actual['months'][0]} … {actual['months'][-1]})")
+        print(f"  {'Category':24s}{'Budget':>9s}{'Actual/mo':>11s}"
+              f"{'Diff':>10s}  Verdict")
+        disc = p.get("discretionary_categories", [])
+        for cat, b in sorted(m["cats"].items(), key=lambda kv: -kv[1]):
+            act = actual["cat_avg"].get(cat, 0.0)
+            verdict = ("OVER — raise it or cut habit" if act > b * 1.10
+                       else "tight" if act > b * 0.95 else "ok")
+            tag = " ⚑" if cat in disc else ""
+            print(f"  {cat:24s}{money(b):>9s}{money(act):>11s}"
+                  f"{money(b - act):>10s}  {verdict}{tag}")
+        unb = sorted(((c, v) for c, v in actual["cat_avg"].items()
+                      if c not in m["cats"] and v > 0),
+                     key=lambda kv: -kv[1])
+        if unb:
+            top = " · ".join(f"{c} {money(v)}" for c, v in unb[:5])
+            if len(unb) > 5:
+                top += f" · +{len(unb) - 5} more"
+            print(f"  Spending with NO budget line: "
+                  f"{money(m['unbudgeted'])}/mo avg")
+            print(f"    {top}")
+        d = actual["avg_inc"] - m["inc"]
+        print(f"  Income: plan {money(m['inc'])} vs actual "
+              f"{money(actual['avg_inc'])}/mo "
+              f"({'+' if d >= 0 else '−'}{money(abs(d))} vs plan)")
+
+        # ---- projection ----------------------------------------------------
+        cur_net = actual["avg_inc"] - actual["avg_spend"]
+        liquid = _liquid(prof)
+        print("")
+        print("PROJECTION")
+        print(f"  If you hit every budget : net {money(m['net_if_hit'])}/mo  "
+              f"({money(m['net_if_hit'] * 12)}/yr)   "
+              "(plan income − budgets − unbudgeted avg)")
+        print(f"  At your current pace    : net {money(cur_net)}/mo  "
+              f"({money(cur_net * 12)}/yr)   (actual income − actual spend)")
+        if m["sav"]:
+            gap = m["net_if_hit"] - m["sav"]
+            print(f"  Savings goal {money(m['sav'])}/mo: "
+                  + (f"covered, {money(gap)}/mo to spare ✅" if gap >= 0 else
+                     f"even on-plan you'd MISS it by {money(-gap)}/mo ⚠"))
+        if m["goal"]:
+            print(f"  Emergency fund {money(m['goal'])} (liquid now "
+                  f"{money(liquid)}): "
+                  f"{_fmt_months(_months_to_goal(m['goal'], liquid, m['net_if_hit']))} "
+                  f"on plan · "
+                  f"{_fmt_months(_months_to_goal(m['goal'], liquid, cur_net))} "
+                  "at current pace")
+            if not prof:
+                print("    (no config/profile.json — liquid assumed $0; add "
+                      "cash balances for real numbers)")
+
+    # ---- side-by-side comparison ------------------------------------------
+    names = [active] + alt_names
+    if len(names) < 2:
+        print("")
+        print("  Only one plan defined. Add scenarios under \"alt_plans\" in")
+        print("  config/budget.json to compare (see budget.example.json).")
+        return
+    mm = {n: _plan_metrics(_plan_variant(budget, n), actual) for n in names}
+    W = 16
+    trunc = lambda s: s if len(s) <= W - 2 else s[:W - 3] + "…"
+    print("")
+    print("PLAN COMPARISON" + ("" if actual else " (on paper only — no data)"))
+    print("  " + " " * 24 + "".join(f"{trunc(n):>{W}s}" for n in names))
+    rows = [("Income /mo", "inc"), ("Savings goal /mo", "sav"),
+            ("Budgeted spend /mo", "budgeted"),
+            ("Unallocated cushion /mo", "cushion")]
+    if actual:
+        rows += [("Unbudgeted (actual) /mo", "unbudgeted"),
+                 ("Net if budgets hit /mo", "net_if_hit")]
+    for label, key in rows:
+        line = f"  {label:24s}"
+        for n in names:
+            v = mm[n][key]
+            flag = " ⚠" if key == "cushion" and v < 0 else ""
+            line += f"{money(v) + flag:>{W}s}"
+        print(line)
+    if actual and any(mm[n]["goal"] for n in names):
+        liquid = _liquid(prof)
+        line = f"  {'Months to emerg. fund':24s}"
+        for n in names:
+            line += (f"{_fmt_months(_months_to_goal(mm[n]['goal'], liquid, mm[n]['net_if_hit'])):>{W}s}")
+        print(line)
+    print("")
+    print("  Try a plan day-to-day:  safe_to_spend.py --plan \"<name>\"")
+    print("  (the dashboard's plan selector shows the same plans)")
 
 
 # ---------------------------------------------------------------------------
@@ -327,6 +556,13 @@ def cmd_savings(a):
 def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
+
+    pl = sub.add_parser("plan")
+    pl.add_argument("--plan", help="analyze a specific plan "
+                    "(default: the active plan; alt plans always compared)")
+    pl.add_argument("--months", type=int, default=3,
+                    help="complete months of actuals for the reality check")
+    pl.set_defaults(func=cmd_plan)
 
     s = sub.add_parser("subs")
     s.set_defaults(func=cmd_subs)

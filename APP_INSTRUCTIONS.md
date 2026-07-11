@@ -199,6 +199,7 @@ python3 scripts/normalize.py          # data/raw/*.csv  -> normalized JSON
 python3 scripts/analyze.py --save     # JSON -> report (printed + saved)
 python3 scripts/safe_to_spend.py      # daily/weekly safe-to-spend + budget vs actual
 python3 scripts/safe_to_spend.py --message-only   # the morning text line
+python3 scripts/planning.py plan      # plan analysis: on-paper check, plan-vs-actual, compare alt_plans
 python3 scripts/planning.py subs      # subscription / recurring auditor
 python3 scripts/planning.py loans     # student-loan payoff simulator
 python3 scripts/planning.py savings   # savings-rate trend + emergency-fund runway
