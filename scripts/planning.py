@@ -8,6 +8,9 @@ Tools, all with sensible defaults you can override on the command line:
               are the category budgets realistic vs your actual spending, what
               does it project for savings — and a side-by-side comparison of
               every plan in budget.json (active_plan + alt_plans).
+  purchase  — impact of a big one-off buy (a car, a move…): cash hit today,
+              runway & emergency-fund reset, optional loan payment and
+              recurring-cost change, and how long the rebuild takes.
   subs      — subscription / recurring-charge auditor with stale flags.
   loans     — student-loan payoff simulator (time + interest per payment).
   savings   — savings-rate trend + emergency-fund runway.
@@ -21,6 +24,8 @@ Tools, all with sensible defaults you can override on the command line:
 Examples:
     python3 scripts/planning.py plan
     python3 scripts/planning.py plan --plan "Tighter Month" --months 6
+    python3 scripts/planning.py purchase --amount 7000 --what "Car"
+    python3 scripts/planning.py purchase --amount 7000 --finance 3000 --apr 9 --monthly-delta 40
     python3 scripts/planning.py fuel
     python3 scripts/planning.py commute --rent 1250 --office-days 2 --hotel 110
     python3 scripts/planning.py car --target 8000 --months 14
@@ -83,6 +88,16 @@ def _plan_variant(budget, name):
         return budget
     import safe_to_spend  # sibling module; scripts/ is on sys.path when run
     return safe_to_spend.apply_plan(budget, name)
+
+
+def _resolve_plan(budget, name):
+    """(name, merged budget) for --plan, defaulting to the active plan."""
+    active = budget.get("active_plan", "Current Plan")
+    names = [active] + list(budget.get("alt_plans", {}) or {})
+    focus = name or active
+    if focus not in names:
+        raise SystemExit(f"Unknown plan '{focus}'. Options: {', '.join(names)}")
+    return focus, _plan_variant(budget, focus)
 
 
 def _actuals(tx, n):
@@ -168,11 +183,7 @@ def cmd_plan(a):
 
     active = budget.get("active_plan", "Current Plan")
     alt_names = list(budget.get("alt_plans", {}) or {})
-    focus = a.plan or active
-    if focus != active and focus not in alt_names:
-        raise SystemExit(f"Unknown plan '{focus}'. "
-                         f"Options: {', '.join([active] + alt_names)}")
-    p = _plan_variant(budget, focus)
+    focus, p = _resolve_plan(budget, a.plan)
     m = _plan_metrics(p, actual)
 
     print("=" * 68)
@@ -289,6 +300,116 @@ def cmd_plan(a):
     print("")
     print("  Try a plan day-to-day:  safe_to_spend.py --plan \"<name>\"")
     print("  (the dashboard's plan selector shows the same plans)")
+
+
+# ---------------------------------------------------------------------------
+# purchase — impact of a big one-off buy (a car, a move, a laptop) on liquid
+# cash, runway, the emergency fund, and the monthly plan.
+# ---------------------------------------------------------------------------
+def _amortized_payment(principal, apr_pct, months):
+    if principal <= 0 or months <= 0:
+        return 0.0
+    r = apr_pct / 100 / 12
+    if r == 0:
+        return principal / months
+    return principal * r / (1 - (1 + r) ** -months)
+
+
+def cmd_purchase(a):
+    budget = load_budget()
+    if not budget:
+        print("No budget found — copy config/budget.example.json "
+              "to config/budget.json.")
+        return
+    prof = load_profile()
+    actual = _actuals(load_tx(), a.months)
+    focus, p = _resolve_plan(budget, a.plan)
+    m = _plan_metrics(p, actual)
+
+    cash_out = a.amount - a.finance
+    liquid = _liquid(prof)
+    liquid_after = liquid - cash_out
+    payment = _amortized_payment(a.finance, a.apr, a.term)
+    delta_mo = payment + a.monthly_delta   # ongoing cost change, +$ = worse
+
+    print("=" * 68)
+    print(f"PURCHASE IMPACT — {a.what}, {money(a.amount)}   (plan: {focus})")
+    print("=" * 68)
+    print("CASH HIT TODAY")
+    print(f"  Price                 : {money(a.amount)}")
+    if a.finance:
+        print(f"  Financed              : {money(a.finance)} @ {a.apr}% "
+              f"for {a.term} mo")
+    print(f"  Cash out the door     : {money(cash_out)}")
+    if prof:
+        print(f"  Liquid before → after : {money(liquid)} → "
+              f"{money(liquid_after)}")
+    else:
+        print(f"  Liquid before → after : unknown (no config/profile.json — "
+              "assumed $0)")
+    if prof and actual and actual["avg_spend"] > 0:
+        spend = actual["avg_spend"]
+        print(f"  Runway before → after : {liquid/spend:.1f} → "
+              f"{liquid_after/spend:.1f} months of spending "
+              f"(at {money(spend)}/mo actual)")
+    if liquid_after < 0:
+        print(f"  ⚠ That's {money(-liquid_after)} more cash than you have on")
+        print("    record — finance the gap, lower the price, or update")
+        print("    config/profile.json if balances are stale.")
+    elif m["goal"] and liquid_after < m["goal"]:
+        print(f"  ⚠ This drops you {money(m['goal'] - liquid_after)} below "
+              f"the {money(m['goal'])} emergency-fund goal.")
+    elif actual and actual["avg_spend"] > 0 and liquid_after < actual["avg_spend"]:
+        print("  ⚠ Less than one month of spending left after this.")
+    print(f"  Note: tax, title & fees typically add ~6–8% "
+          f"(~{money(a.amount*0.07)} here), plus the first insurance premium")
+    print("  — they come out of cash the same day.")
+
+    print("")
+    print("ONGOING MONTHLY CHANGE")
+    if payment:
+        print(f"  Loan payment          : {money(payment)}/mo  "
+              f"(total interest {money(payment*a.term - a.finance)} "
+              f"over {a.term} mo)")
+    if a.monthly_delta:
+        label = "extra cost" if a.monthly_delta > 0 else "saving"
+        print(f"  Other recurring       : {money(abs(a.monthly_delta))}/mo "
+              f"{label} (insurance, fuel, maintenance…)")
+    if not delta_mo:
+        print("  None modeled — pass --finance (loan) and/or --monthly-delta")
+        print("  (e.g. --monthly-delta 60 for pricier insurance, or a negative")
+        print("  number if the new car cuts gas/repair costs).")
+    if actual:
+        cur_net = actual["avg_inc"] - actual["avg_spend"]
+        print(f"  Net/mo if budgets hit : {money(m['net_if_hit'])} → "
+              f"{money(m['net_if_hit'] - delta_mo)}")
+        print(f"  Net/mo, current pace  : {money(cur_net)} → "
+              f"{money(cur_net - delta_mo)}")
+        if m["sav"]:
+            net_after = m["net_if_hit"] - delta_mo
+            if net_after < m["sav"]:
+                print(f"  ⚠ The {money(m['sav'])}/mo savings goal no longer "
+                      f"fits — short {money(m['sav'] - net_after)}/mo.")
+
+        print("")
+        print("REBUILDING")
+        rate = m["net_if_hit"] - delta_mo
+        if m["goal"]:
+            print(f"  Emergency fund {money(m['goal'])}: was "
+                  f"{_fmt_months(_months_to_goal(m['goal'], liquid, m['net_if_hit']))} "
+                  f"→ now {_fmt_months(_months_to_goal(m['goal'], liquid_after, rate))} "
+                  "(on plan)")
+        if rate > 0 and cash_out > 0:
+            print(f"  Back to today's liquid: ~{cash_out/rate:.1f} months "
+                  f"at {money(rate)}/mo on-plan net")
+        print(f"  Start the NEXT car/repair fund now so this never hurts "
+              f"again:")
+        print(f"    planning.py car --target {int(a.amount)} --months 36  → "
+              f"{money(a.amount/36)}/mo")
+    else:
+        print("")
+        print("  (No transaction data — run scripts/normalize.py for runway,")
+        print("   net-per-month, and rebuild projections.)")
 
 
 # ---------------------------------------------------------------------------
@@ -563,6 +684,20 @@ def main():
     pl.add_argument("--months", type=int, default=3,
                     help="complete months of actuals for the reality check")
     pl.set_defaults(func=cmd_plan)
+
+    pu = sub.add_parser("purchase")
+    pu.add_argument("--amount", type=float, default=7000, help="price")
+    pu.add_argument("--what", default="Car", help="label for the report")
+    pu.add_argument("--finance", type=float, default=0,
+                    help="portion financed (reduces today's cash hit)")
+    pu.add_argument("--apr", type=float, default=8.5, help="loan APR %%")
+    pu.add_argument("--term", type=int, default=36, help="loan months")
+    pu.add_argument("--monthly-delta", type=float, default=0,
+                    help="recurring $/mo change: +insurance, −gas savings…")
+    pu.add_argument("--plan", help="evaluate against a specific plan")
+    pu.add_argument("--months", type=int, default=3,
+                    help="complete months of actuals to average")
+    pu.set_defaults(func=cmd_purchase)
 
     s = sub.add_parser("subs")
     s.set_defaults(func=cmd_subs)

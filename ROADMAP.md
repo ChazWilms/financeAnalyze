@@ -17,6 +17,13 @@ Living doc tracking the iterative development (the `/loop`). Newest insights at 
   switcher and `safe_to_spend.py --plan` already consumed it, but the
   example never showed it.
 - Docs: README + APP_INSTRUCTIONS quick-refs updated.
+- **planning.py purchase** — one-off big-buy impact analysis (prompted by the
+  real ~$7k car purchase): cash out the door vs financed (amortized payment +
+  total interest), liquid before/after from profile.json, runway before/after,
+  emergency-fund warnings & reset, `--monthly-delta` for recurring changes
+  (insurance up, premium gas gone), net/mo before/after on-plan and at current
+  pace, months to rebuild, and a next-car sinking-fund nudge. Degrades
+  gracefully without profile.json / transaction data.
 
 ## ✅ Done (2026-07-07 — "connect accounts" + weekly report)
 - **scripts/refresh.py** — auto-ingests new Discover/Huntington exports from

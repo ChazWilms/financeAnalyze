@@ -68,6 +68,7 @@ bash run.sh            # normalize → snapshot → save report
 python3 scripts/safe_to_spend.py          # daily/weekly "safe to spend" + budget vs actual
 python3 scripts/safe_to_spend.py --message-only   # the one-line morning message
 python3 scripts/planning.py plan          # financial-plan analysis: plan vs reality + compare alt plans
+python3 scripts/planning.py purchase --amount 7000 --what "Car"   # big-buy impact: cash, runway, rebuild
 python3 scripts/planning.py subs          # subscription / recurring-charge auditor
 python3 scripts/planning.py fuel          # what premium gas actually costs you
 python3 scripts/planning.py commute       # Columbus: commute-from-home vs rent
